@@ -32,12 +32,29 @@ class SupabaseAuditService:
     def has_entry(self, source_kind: SourceKind, source_id: str) -> bool:
         return (source_kind.value, source_id) in self._seen
 
+    async def bootstrap(self) -> None:
+        """Seed _seen from existing DB rows so restarts don't produce duplicates."""
+        logger.info("SupabaseAudit bootstrap: starting")
+        if not self._configured():
+            logger.warning("SupabaseAudit bootstrap: skipped (not configured)")
+            return
+        async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
+            response = await client.get(
+                f"{self._base()}/rest/v1/alert_audit_log",
+                params={"select": "source_kind,source_id"},
+            )
+            response.raise_for_status()
+        for row in response.json():
+            self._seen.add((row["source_kind"], row["source_id"]))
+        logger.info("SupabaseAudit bootstrap: complete, loaded %d seen entries", len(self._seen))
+
     async def add_entry(self, entry: AlertAuditEntry) -> None:
         key = (entry.source_kind.value, entry.source_id)
-        self._seen.add(key)
         if not self._configured():
+            logger.debug("SupabaseAudit: not configured, caching locally source_id=%s", entry.source_id)
+            self._seen.add(key)
             return
-        async with httpx.AsyncClient(timeout=8, headers={**self._headers(), "Prefer": "return=minimal"}) as client:
+        async with httpx.AsyncClient(timeout=8, headers={**self._headers(), "Prefer": "return=minimal,resolution=ignore-duplicates"}) as client:
             response = await client.post(
                 f"{self._base()}/rest/v1/alert_audit_log",
                 json={
@@ -52,10 +69,14 @@ class SupabaseAuditService:
                     "raw": entry.raw,
                 },
             )
-            logger.info("SupabaseAudit insert: status=%s body=%s", response.status_code, response.text[:300])
-            if not response.is_success:
-                logger.error("SupabaseAudit insert failed: %s %s", response.status_code, response.text)
+            if response.status_code == 200 or response.status_code == 201:
+                logger.info("SupabaseAudit: inserted source_kind=%s source_id=%s title=%r", entry.source_kind.value, entry.source_id, entry.title)
+            elif response.status_code == 204:
+                logger.info("SupabaseAudit: skipped (duplicate) source_kind=%s source_id=%s", entry.source_kind.value, entry.source_id)
+            elif not response.is_success:
+                logger.error("SupabaseAudit: insert failed status=%s body=%s", response.status_code, response.text[:300])
             response.raise_for_status()
+        self._seen.add(key)
 
     async def list_entries(self) -> list[AlertAuditEntry]:
         if not self._configured():
