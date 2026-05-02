@@ -46,6 +46,17 @@ export type SupabaseContactRow = {
   priority: number | null;
 };
 
+export type SupabaseNotificationRow = {
+  id: string;
+  family_id: string;
+  target_role: string;
+  title: string;
+  body: string;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {

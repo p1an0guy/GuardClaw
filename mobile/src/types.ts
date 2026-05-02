@@ -30,3 +30,14 @@ export type FamilyMessage = {
 };
 
 export type QuickActionId = 'safe' | 'check-in' | 'help' | 'share-location';
+
+export type AppNotification = {
+  id: string;
+  family_id: string;
+  target_role: 'guardian' | 'all';
+  title: string;
+  body: string;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+};
