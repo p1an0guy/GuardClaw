@@ -112,10 +112,8 @@ button:disabled {
   grid-template-areas:
     "alert alert summary"
     "timeline map members"
-    "timeline cctv1 dispatch"
-    "timeline cctv2 chat"
-    "timeline cctv3 chat"
-    "timeline cctv4 chat";
+    "timeline cctv-block dispatch"
+    "timeline cctv-block chat";
   gap: 14px;
   align-items: stretch;
 }
@@ -153,20 +151,17 @@ button:disabled {
   grid-area: dispatch;
 }
 
-.cctv1 {
-  grid-area: cctv1;
+.cctv-grid {
+  grid-area: cctv-block;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
 }
 
-.cctv2 {
-  grid-area: cctv2;
-}
-
-.cctv3 {
-  grid-area: cctv3;
-}
-
-.cctv4 {
-  grid-area: cctv4;
+.cctv-grid .ops-panel {
+  aspect-ratio: 16 / 9;
+  min-height: 0;
 }
 
 .area-chat {
@@ -627,25 +622,6 @@ button:disabled {
   font-size: 0.78rem;
 }
 
-.cctv1,
-.cctv2,
-.cctv3,
-.cctv4 {
-  min-height: 158px;
-  display: grid;
-  place-items: center;
-  background: #2d332f;
-  color: var(--paper);
-  text-align: center;
-}
-
-.cctv1::after,
-.cctv2::after,
-.cctv3::after,
-.cctv4::after {
-  content: none;
-}
-
 .cctv-video {
   position: absolute;
   inset: 0;
@@ -782,11 +758,12 @@ button:disabled {
       "map"
       "members"
       "dispatch"
-      "cctv1"
-      "cctv2"
-      "cctv3"
-      "cctv4"
+      "cctv-block"
       "chat";
+  }
+
+  .cctv-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .ops-timeline {

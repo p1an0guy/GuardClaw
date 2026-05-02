@@ -84,16 +84,14 @@ function CctvPanel({
   signal?: CameraSignal | null;
   featured?: boolean;
 }) {
-  const areaClass = label.toLowerCase().replace(" ", "");
-  const ts = new Date().toLocaleString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  const areaClass = "";
+  const [ts, setTs] = useState("");
+  useEffect(() => {
+    setTs(new Date().toLocaleString("en-US", {
+      month: "2-digit", day: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }));
+  }, []);
   return (
     <section className={`ops-panel ${areaClass}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -292,10 +290,12 @@ export default function DashboardPage() {
           <p>Hermes handles Telegram and outbound calls. Backend validates classification and logs each result.</p>
         </section>
 
-        <CctvPanel featured label="CCTV 1" imageSrc="/cctv/cam1.png" signal={cameraSignal} />
-        <CctvPanel label="CCTV 2" imageSrc="/cctv/cam2.png" />
-        <CctvPanel label="CCTV 3" imageSrc="/cctv/cam3.png" />
-        <CctvPanel label="CCTV 4" imageSrc="/cctv/cam4.png" />
+        <div className="cctv-grid">
+          <CctvPanel featured label="CCTV 1" imageSrc="/cctv/cam1.png" signal={cameraSignal} />
+          <CctvPanel label="CCTV 2" imageSrc="/cctv/cam2.png" />
+          <CctvPanel label="CCTV 3" imageSrc="/cctv/cam3.png" />
+          <CctvPanel label="CCTV 4" imageSrc="/cctv/cam4.png" />
+        </div>
 
         <section className="ops-panel area-chat ops-chat">
           <h2>Live chat with GuardClaw</h2>
