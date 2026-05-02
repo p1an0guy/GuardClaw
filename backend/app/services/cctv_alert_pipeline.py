@@ -5,7 +5,6 @@ import hashlib
 import hmac
 import json
 import logging
-import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,7 +43,7 @@ class CCTVAlertPipeline:
         clip_path.unlink(missing_ok=True)
 
     async def _extract_clip(self, buffer: FrameBuffer, camera_id: str, timestamp: float) -> Path | None:
-        """Write buffer frames to a temp MP4 file using ffmpeg."""
+        """Write buffer frames to a temp MP4 file using OpenCV."""
         frames = buffer.get_buffer(15.0, 15.0)
         if not frames:
             return None
@@ -53,40 +52,22 @@ class CCTVAlertPipeline:
         tmp_dir.mkdir(parents=True, exist_ok=True)
         ts_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
         output_path = tmp_dir / f"{camera_id}_{ts_str}.mp4"
-        raw_dir = tmp_dir / f"raw_{camera_id}_{ts_str}"
-        raw_dir.mkdir(parents=True, exist_ok=True)
 
         loop = asyncio.get_running_loop()
-        for i, (_, frame) in enumerate(frames):
-            frame_path = raw_dir / f"frame_{i:05d}.jpg"
-            await loop.run_in_executor(None, lambda p=frame_path, f=frame: cv2.imwrite(str(p), f))
 
-        fps = max(1, len(frames) // 30)
-        cmd = [
-            "ffmpeg", "-y",
-            "-framerate", str(fps),
-            "-i", str(raw_dir / "frame_%05d.jpg"),
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-preset", "ultrafast",
-            str(output_path),
-        ]
+        def _write():
+            first_frame = frames[0][1]
+            h, w = first_frame.shape[:2]
+            fps = max(1, len(frames) // 30)
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
+            for _, frame in frames:
+                writer.write(frame)
+            writer.release()
+            return True
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
-            )
-            _, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                logger.error("ffmpeg failed: %s", stderr.decode())
-                return None
-        except FileNotFoundError:
-            logger.error("ffmpeg not found on PATH")
-            return None
-        finally:
-            await loop.run_in_executor(None, lambda: shutil.rmtree(raw_dir, ignore_errors=True))
-
-        return output_path
+        ok = await loop.run_in_executor(None, _write)
+        return output_path if ok else None
 
     async def _extract_and_upload_clip(self, source_path: str, camera_id: str, timestamp: float) -> str | None:
         """Extract a 25s clip from a video file and upload to Supabase Storage."""
