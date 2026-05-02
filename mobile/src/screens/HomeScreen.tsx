@@ -126,6 +126,7 @@ export default function HomeScreen() {
   const [members, setMembers] = useState<FamilyMember[]>(() => isSupabaseConfigured ? [] : sortMembers(mockMembers));
   const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [banner, setBanner] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -549,6 +550,8 @@ export default function HomeScreen() {
         (payload) => {
           const row = payload.new as SupabaseNotificationRow;
           setNotifications((prev) => [row as AppNotification, ...prev]);
+          setBanner(row.title);
+          setTimeout(() => setBanner(null), 4000);
         },
       )
       .subscribe();
@@ -681,6 +684,13 @@ export default function HomeScreen() {
             <Text numberOfLines={2} style={styles.noticeText}>
               {notice}
             </Text>
+          </View>
+        ) : null}
+
+        {banner ? (
+          <View style={styles.banner}>
+            <Ionicons color={colors.danger} name="alert-circle" size={18} />
+            <Text numberOfLines={1} style={styles.bannerText}>{banner}</Text>
           </View>
         ) : null}
 
@@ -827,6 +837,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 17,
+  },
+  banner: {
+    alignItems: 'center',
+    backgroundColor: '#3a1c1c',
+    borderColor: colors.danger,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  bannerText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
   },
   content: {
     flex: 1,
