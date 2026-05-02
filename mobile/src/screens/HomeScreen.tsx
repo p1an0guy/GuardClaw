@@ -681,7 +681,7 @@ export default function HomeScreen() {
     });
     setSavedLocations((prev) => [
       ...prev.filter((s) => !(s.member_id === memberId && s.label === label)),
-      { id: '', family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: member.lat!, lng: member.lng!, created_at: new Date().toISOString() },
+      { id: `${memberId}-${label}`, family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: member.lat!, lng: member.lng!, created_at: new Date().toISOString() },
     ]);
   }, [members]);
 
