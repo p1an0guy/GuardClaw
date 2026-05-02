@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, statusTheme } from '../theme';
 import type { Coordinate, FamilyMember } from '../types';
@@ -10,6 +10,7 @@ type Props = {
   currentLocation: Coordinate | null;
   loading?: boolean;
   members: FamilyMember[];
+  onMemberPress?: (memberId: string) => void;
 };
 
 const initialsFor = (name: string) =>
@@ -20,7 +21,7 @@ const initialsFor = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
-export default function StatusDashboard({ currentLocation, loading, members }: Props) {
+export default function StatusDashboard({ currentLocation, loading, members, onMemberPress }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -52,7 +53,8 @@ export default function StatusDashboard({ currentLocation, loading, members }: P
                 : 'location pending';
 
             return (
-              <View key={member.id} style={styles.card}>
+              <Pressable key={member.id} onPress={() => onMemberPress?.(member.id)}>
+                <View style={styles.card}>
                 <View style={[styles.avatar, { borderColor: theme.borderColor }]}>
                   <Text style={styles.avatarText}>{initialsFor(member.name) || '?'}</Text>
                 </View>
@@ -93,6 +95,7 @@ export default function StatusDashboard({ currentLocation, loading, members }: P
                   </View>
                 </View>
               </View>
+              </Pressable>
             );
           })
         )}

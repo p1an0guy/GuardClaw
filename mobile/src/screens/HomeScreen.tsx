@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ChatDock from '../components/ChatDock';
 import FamilyMap from '../components/FamilyMap';
+import QuickActions from '../components/QuickActions';
 import StatusDashboard from '../components/StatusDashboard';
 import { mockMembers, mockMessages } from '../data/mockData';
 import {
@@ -610,9 +611,10 @@ export default function HomeScreen() {
 
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
   const [activeTab, setActiveTab] = useState<'home' | 'chat'>('home');
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={8}
@@ -645,10 +647,12 @@ export default function HomeScreen() {
             <>
               <FamilyMap
                 currentLocation={currentLocation}
+                focusedMemberId={focusedMemberId}
                 locationState={locationState}
                 members={members}
               />
-              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} />
+              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} onMemberPress={setFocusedMemberId} />
+              <QuickActions disabled={loadingBackend || sending} onAction={handleQuickAction} />
             </>
           ) : (
             <ChatDock
@@ -780,6 +784,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSoft,
     borderTopWidth: 1,
     flexDirection: 'row',
+    paddingBottom: 12,
     paddingTop: 8,
   },
   tab: {
