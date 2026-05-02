@@ -16,9 +16,7 @@ type Action = {
 
 const actions: Action[] = [
   { id: 'safe', label: "I'm Safe", icon: 'shield-checkmark', color: colors.success },
-  { id: 'check-in', label: 'Check In', icon: 'checkmark-circle', color: colors.blue },
   { id: 'help', label: 'Need Help', icon: 'alert-circle', color: colors.danger },
-  { id: 'share-location', label: 'Share Location', icon: 'navigate-circle', color: colors.accent },
 ];
 
 type Props = {

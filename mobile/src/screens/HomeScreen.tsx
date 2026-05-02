@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -608,6 +609,7 @@ export default function HomeScreen() {
   );
 
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
+  const [activeTab, setActiveTab] = useState<'home' | 'chat'>('home');
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -639,21 +641,45 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.content}>
-          <FamilyMap
-            currentLocation={currentLocation}
-            locationState={locationState}
-            members={members}
-          />
-          <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} />
-          <ChatDock
-            currentSender={SUPABASE_MEMBER_NAME}
-            disabled={loadingBackend}
-            loading={loadingBackend}
-            messages={messages}
-            onQuickAction={handleQuickAction}
-            onSendMessage={sendMessage}
-            sending={sending}
-          />
+          {activeTab === 'home' ? (
+            <>
+              <FamilyMap
+                currentLocation={currentLocation}
+                locationState={locationState}
+                members={members}
+              />
+              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} />
+            </>
+          ) : (
+            <ChatDock
+              currentSender={SUPABASE_MEMBER_NAME}
+              disabled={loadingBackend}
+              loading={loadingBackend}
+              messages={messages}
+              onQuickAction={handleQuickAction}
+              onSendMessage={sendMessage}
+              sending={sending}
+            />
+          )}
+        </View>
+
+        <View style={styles.tabBar}>
+          <Pressable
+            accessibilityRole="tab"
+            onPress={() => setActiveTab('home')}
+            style={[styles.tab, activeTab === 'home' && styles.tabActive]}
+          >
+            <Ionicons color={activeTab === 'home' ? colors.accent : colors.textMuted} name="map" size={22} />
+            <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>Home</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            onPress={() => setActiveTab('chat')}
+            style={[styles.tab, activeTab === 'chat' && styles.tabActive]}
+          >
+            <Ionicons color={activeTab === 'chat' ? colors.accent : colors.textMuted} name="chatbubbles" size={22} />
+            <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>Chat</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -749,5 +775,26 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     gap: 12,
+  },
+  tabBar: {
+    borderTopColor: colors.borderSoft,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    paddingTop: 8,
+  },
+  tab: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 2,
+    paddingVertical: 4,
+  },
+  tabActive: {},
+  tabLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tabLabelActive: {
+    color: colors.accent,
   },
 });
