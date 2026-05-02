@@ -151,6 +151,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let sub: Battery.Subscription | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const init = async () => {
       const level = await Battery.getBatteryLevelAsync();
       batteryRef.current = Math.round(level * 100);
@@ -167,7 +168,18 @@ export default function HomeScreen() {
       }
     };
     init();
-    return () => { sub?.remove(); };
+    // Push battery + status every 30s regardless of movement
+    if (supabase && isSupabaseConfigured && SUPABASE_MEMBER_ID) {
+      const client = supabase;
+      interval = setInterval(() => {
+        client
+          .from('members')
+          .update({ battery: batteryRef.current, updated_at: new Date().toISOString() })
+          .eq('id', SUPABASE_MEMBER_ID)
+          .then();
+      }, 30_000);
+    }
+    return () => { sub?.remove(); if (interval) clearInterval(interval); };
   }, []);
 
   const updateCurrentMemberLocally = useCallback((patch: Partial<FamilyMember>) => {
