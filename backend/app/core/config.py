@@ -53,6 +53,11 @@ class Settings:
     alert_radius_km: float = float(os.getenv("ALERT_RADIUS_KM", "16.0"))
     hermes_webhook_url: str = (os.getenv("HERMES_WEBHOOK_BASE_URL", "").strip().strip("'\"\u2018\u2019\u201c\u201d").rstrip("/") + "/webhooks/family-alert-triage") if os.getenv("HERMES_WEBHOOK_BASE_URL") else ""
     hermes_webhook_secret: str = os.getenv("HERMES_WEBHOOK_SECRET", "")
+    cctv_enabled: bool = _bool_env("GUARDCLAW_CCTV_ENABLED", False)
+    cctv_video_base_path: str = os.getenv(
+        "GUARDCLAW_CCTV_VIDEO_BASE_PATH",
+        str(Path(__file__).resolve().parents[3] / "frontend" / "public" / "cctv"),
+    )
 
     def __post_init__(self) -> None:
         if self.cors_origins is None:
