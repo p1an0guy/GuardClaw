@@ -41,4 +41,4 @@ mobile/android/
 .playwright-mcp/
 
 # Images (large binary assets tracked separately if needed)
-*.png
+# *.png — removed: frontend/public/cctv/ images need to be committed
