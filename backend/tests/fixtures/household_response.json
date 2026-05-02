@@ -1,0 +1,27 @@
+{
+  "id": "__any__",
+  "members": [
+    {
+      "id": "__any__",
+      "name": "__any__",
+      "role": "__any__",
+      "age_category": "__any__",
+      "status": "__any__",
+      "priority": 1,
+      "channels": [],
+      "location": null,
+      "mobile_status": null,
+      "phone_e164": null,
+      "telegram_chat_id": null
+    }
+  ],
+  "home_signal": {
+    "label": "__any__",
+    "occupancy_confirmed": true,
+    "observed_at": "__any__",
+    "confidence": 0.0
+  },
+  "calendar_items": [],
+  "demo_mode": true,
+  "updated_at": "__any__"
+}
