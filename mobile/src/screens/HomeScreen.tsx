@@ -130,6 +130,7 @@ export default function HomeScreen() {
   const currentMemberIdRef = useRef<string | null>(SUPABASE_MEMBER_ID || mockMembers[0]?.id || null);
   const lastLocationPushRef = useRef(0);
   const batteryRef = useRef<number>(100);
+  const currentLocationRef = useRef<Coordinate | null>(null);
   const membersRef = useRef<FamilyMember[]>(members);
 
   const currentMember = useMemo(() => {
@@ -168,13 +169,18 @@ export default function HomeScreen() {
       }
     };
     init();
-    // Push battery + status every 30s regardless of movement
+    // Push battery + location every 30s regardless of movement
     if (supabase && isSupabaseConfigured && SUPABASE_MEMBER_ID) {
       const client = supabase;
       interval = setInterval(() => {
+        const loc = currentLocationRef.current;
         client
           .from('members')
-          .update({ battery: batteryRef.current, updated_at: new Date().toISOString() })
+          .update({
+            battery: batteryRef.current,
+            updated_at: new Date().toISOString(),
+            ...(loc && { lat: loc.latitude, lng: loc.longitude }),
+          })
           .eq('id', SUPABASE_MEMBER_ID)
           .then();
       }, 30_000);
@@ -313,6 +319,7 @@ export default function HomeScreen() {
       };
 
       setCurrentLocation(nextLocation);
+      currentLocationRef.current = nextLocation;
 
       const derivedStatus: MemberStatus | undefined =
         coords.speed != null
