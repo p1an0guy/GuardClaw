@@ -76,16 +76,19 @@ function CctvHud({ camId, timestamp }: { camId: string; timestamp: string }) {
 
 function CctvPanel({
   label,
-  imageSrc,
+  videoSrc,
   signal,
   featured = false,
 }: {
   label: string;
-  imageSrc: string;
+  videoSrc?: string;
   signal?: CameraSignal | null;
   featured?: boolean;
 }) {
   const areaClass = "";
+  const cameraNumber = label.replace("CCTV ", "");
+  const feedSrc = videoSrc ?? `/cctv/cam${cameraNumber}.mp4`;
+  const posterSrc = `/cctv/cam${cameraNumber}.png`;
   const [ts, setTs] = useState("");
   useEffect(() => {
     setTs(new Date().toLocaleString("en-US", {
@@ -95,8 +98,17 @@ function CctvPanel({
   }, []);
   return (
     <section className={`ops-panel ${areaClass}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={imageSrc} alt={`${label} feed`} className="cctv-video" />
+      <video
+        aria-label={`${label} feed`}
+        autoPlay
+        className="cctv-video"
+        loop
+        muted
+        playsInline
+        poster={posterSrc}
+        preload="auto"
+        src={feedSrc}
+      />
       <div className="cctv-shade" />
       <CctvHud camId={label} timestamp={ts} />
       {featured && signal ? (
