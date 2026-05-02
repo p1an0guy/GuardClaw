@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, type LatLng, type Region } from 'react-native-maps';
+import MapView, { Circle, Marker, type LatLng, type Region } from 'react-native-maps';
 
 import { colors, shadow, statusTheme } from '../theme';
 import type { Coordinate, FamilyMember, LocationLabel, SavedLocation } from '../types';
@@ -208,6 +208,16 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
               <Ionicons color={colors.accent} name={LOCATION_ICONS[loc.label as LocationLabel] ?? 'flag'} size={18} />
             </View>
           </Marker>
+        ))}
+        {savedLocations.map((loc) => (
+          <Circle
+            center={{ latitude: loc.lat, longitude: loc.lng }}
+            fillColor="rgba(79, 209, 197, 0.1)"
+            key={`circle-${loc.id}`}
+            radius={100}
+            strokeColor="rgba(79, 209, 197, 0.35)"
+            strokeWidth={1}
+          />
         ))}
       </MapView>
 
