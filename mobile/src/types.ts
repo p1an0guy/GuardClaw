@@ -7,10 +7,13 @@ export type Coordinate = {
   longitude: number;
 };
 
+export type MemberRole = 'guardian' | 'child';
+
 export type FamilyMember = {
   id: string;
   family_id?: string;
   name: string;
+  role: MemberRole;
   status: MemberStatus;
   battery: number;
   lat: number | null;

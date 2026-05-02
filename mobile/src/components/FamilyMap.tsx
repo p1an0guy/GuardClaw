@@ -34,6 +34,7 @@ const darkMapStyle = [
 
 type Props = {
   currentLocation: Coordinate | null;
+  focusedMemberId?: string | null;
   locationState: 'requesting' | 'live' | 'denied' | 'unavailable';
   members: FamilyMember[];
 };
@@ -75,7 +76,7 @@ const regionForCoordinates = (coordinates: LatLng[]): Region => {
   };
 };
 
-export default function FamilyMap({ currentLocation, locationState, members }: Props) {
+export default function FamilyMap({ currentLocation, focusedMemberId, locationState, members }: Props) {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -130,6 +131,19 @@ export default function FamilyMap({ currentLocation, locationState, members }: P
     const timeout = setTimeout(recenter, 250);
     return () => clearTimeout(timeout);
   }, [mapReady, recenter, visibleCoordinates.length]);
+
+  useEffect(() => {
+    if (!mapReady || !focusedMemberId || !mapRef.current) return;
+    const entry = memberCoordinates.find((m) => m.id === focusedMemberId);
+    if (entry) {
+      mapRef.current.animateToRegion({
+        latitude: entry.coordinate.latitude,
+        longitude: entry.coordinate.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 450);
+    }
+  }, [focusedMemberId, mapReady, memberCoordinates]);
 
   const liveLabel =
     locationState === 'live'

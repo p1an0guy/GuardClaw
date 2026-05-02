@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ChatDock from '../components/ChatDock';
 import FamilyMap from '../components/FamilyMap';
+import QuickActions from '../components/QuickActions';
 import StatusDashboard from '../components/StatusDashboard';
 import { mockMembers, mockMessages } from '../data/mockData';
 import {
@@ -70,6 +73,7 @@ const rowToMember = (row: SupabaseMemberRow): FamilyMember => ({
   id: row.id,
   family_id: row.family_id,
   name: row.name,
+  role: row.role === 'child' ? 'child' : 'guardian',
   status: normalizeStatus(row.status),
   battery: row.battery,
   lat: row.lat,
@@ -117,8 +121,8 @@ const upsertMessage = (messages: FamilyMessage[], message: FamilyMessage) => {
 };
 
 export default function HomeScreen() {
-  const [members, setMembers] = useState<FamilyMember[]>(() => sortMembers(mockMembers));
-  const [messages, setMessages] = useState<FamilyMessage[]>(mockMessages);
+  const [members, setMembers] = useState<FamilyMember[]>(() => isSupabaseConfigured ? [] : sortMembers(mockMembers));
+  const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -128,6 +132,8 @@ export default function HomeScreen() {
   const [sending, setSending] = useState(false);
   const currentMemberIdRef = useRef<string | null>(SUPABASE_MEMBER_ID || mockMembers[0]?.id || null);
   const lastLocationPushRef = useRef(0);
+  const batteryRef = useRef<number>(100);
+  const currentLocationRef = useRef<Coordinate | null>(null);
   const membersRef = useRef<FamilyMember[]>(members);
 
   const currentMember = useMemo(() => {
@@ -146,6 +152,44 @@ export default function HomeScreen() {
     membersRef.current = members;
     currentMemberIdRef.current = SUPABASE_MEMBER_ID || currentMember?.id || members[0]?.id || null;
   }, [currentMember?.id, members]);
+
+  useEffect(() => {
+    let sub: Battery.Subscription | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const init = async () => {
+      const level = await Battery.getBatteryLevelAsync();
+      batteryRef.current = Math.round(level * 100);
+      sub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+        batteryRef.current = Math.round(batteryLevel * 100);
+      });
+      // Push battery to Supabase immediately on startup
+      if (supabase && isSupabaseConfigured && SUPABASE_MEMBER_ID) {
+        supabase
+          .from('members')
+          .update({ battery: batteryRef.current, updated_at: new Date().toISOString() })
+          .eq('id', SUPABASE_MEMBER_ID)
+          .then();
+      }
+    };
+    init();
+    // Push battery + location every 30s regardless of movement
+    if (supabase && isSupabaseConfigured && SUPABASE_MEMBER_ID) {
+      const client = supabase;
+      interval = setInterval(() => {
+        const loc = currentLocationRef.current;
+        client
+          .from('members')
+          .update({
+            battery: batteryRef.current,
+            updated_at: new Date().toISOString(),
+            ...(loc && { lat: loc.latitude, lng: loc.longitude }),
+          })
+          .eq('id', SUPABASE_MEMBER_ID)
+          .then();
+      }, 30_000);
+    }
+    return () => { sub?.remove(); if (interval) clearInterval(interval); };
+  }, []);
 
   const updateCurrentMemberLocally = useCallback((patch: Partial<FamilyMember>) => {
     const now = new Date().toISOString();
@@ -173,11 +217,12 @@ export default function HomeScreen() {
       }
 
       const newMember: FamilyMember = {
-        id: `local-${Date.now()}`,
+        id: SUPABASE_MEMBER_ID || `local-${Date.now()}`,
         family_id: SUPABASE_FAMILY_ID || 'local-family',
         name: SUPABASE_MEMBER_NAME,
+        role: 'guardian',
         status: patch.status ?? 'Moving',
-        battery: patch.battery ?? 88,
+        battery: patch.battery ?? batteryRef.current,
         lat: patch.lat ?? null,
         lng: patch.lng ?? null,
         updated_at: patch.updated_at ?? now,
@@ -211,7 +256,7 @@ export default function HomeScreen() {
         family_id: SUPABASE_FAMILY_ID,
         name: current?.name || SUPABASE_MEMBER_NAME,
         status: patch.status ?? current?.status ?? 'Moving',
-        battery: patch.battery ?? current?.battery ?? 88,
+        battery: patch.battery ?? current?.battery ?? batteryRef.current,
         lat: patch.lat ?? current?.lat ?? null,
         lng: patch.lng ?? current?.lng ?? null,
         updated_at: now,
@@ -278,9 +323,19 @@ export default function HomeScreen() {
       };
 
       setCurrentLocation(nextLocation);
+      currentLocationRef.current = nextLocation;
+
+      const derivedStatus: MemberStatus | undefined =
+        coords.speed != null
+          ? coords.speed > 0.5
+            ? 'Moving'
+            : 'Safe'
+          : undefined;
+
       updateCurrentMemberLocally({
         lat: nextLocation.latitude,
         lng: nextLocation.longitude,
+        ...(derivedStatus && { status: derivedStatus }),
       });
 
       if (!isSupabaseConfigured) {
@@ -289,7 +344,7 @@ export default function HomeScreen() {
 
       const now = Date.now();
 
-      if (now - lastLocationPushRef.current < 15_000) {
+      if (now - lastLocationPushRef.current < 5_000) {
         return;
       }
 
@@ -297,6 +352,8 @@ export default function HomeScreen() {
       persistCurrentMember({
         lat: nextLocation.latitude,
         lng: nextLocation.longitude,
+        ...(derivedStatus && { status: derivedStatus }),
+        battery: batteryRef.current,
       }).catch((error: Error) => {
         setNotice(`Location sync failed: ${error.message}`);
       });
@@ -553,9 +610,11 @@ export default function HomeScreen() {
   );
 
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
+  const [activeTab, setActiveTab] = useState<'home' | 'chat'>('home');
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={8}
@@ -584,21 +643,47 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.content}>
-          <FamilyMap
-            currentLocation={currentLocation}
-            locationState={locationState}
-            members={members}
-          />
-          <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} />
-          <ChatDock
-            currentSender={SUPABASE_MEMBER_NAME}
-            disabled={loadingBackend}
-            loading={loadingBackend}
-            messages={messages}
-            onQuickAction={handleQuickAction}
-            onSendMessage={sendMessage}
-            sending={sending}
-          />
+          {activeTab === 'home' ? (
+            <>
+              <FamilyMap
+                currentLocation={currentLocation}
+                focusedMemberId={focusedMemberId}
+                locationState={locationState}
+                members={members}
+              />
+              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} onMemberPress={setFocusedMemberId} />
+              <QuickActions disabled={loadingBackend || sending} onAction={handleQuickAction} />
+            </>
+          ) : (
+            <ChatDock
+              currentSender={SUPABASE_MEMBER_NAME}
+              disabled={loadingBackend}
+              loading={loadingBackend}
+              messages={messages}
+              onQuickAction={handleQuickAction}
+              onSendMessage={sendMessage}
+              sending={sending}
+            />
+          )}
+        </View>
+
+        <View style={styles.tabBar}>
+          <Pressable
+            accessibilityRole="tab"
+            onPress={() => setActiveTab('home')}
+            style={[styles.tab, activeTab === 'home' && styles.tabActive]}
+          >
+            <Ionicons color={activeTab === 'home' ? colors.accent : colors.textMuted} name="map" size={22} />
+            <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>Home</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            onPress={() => setActiveTab('chat')}
+            style={[styles.tab, activeTab === 'chat' && styles.tabActive]}
+          >
+            <Ionicons color={activeTab === 'chat' ? colors.accent : colors.textMuted} name="chatbubbles" size={22} />
+            <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>Chat</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -694,5 +779,27 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     gap: 12,
+  },
+  tabBar: {
+    borderTopColor: colors.borderSoft,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    paddingBottom: 12,
+    paddingTop: 8,
+  },
+  tab: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 2,
+    paddingVertical: 4,
+  },
+  tabActive: {},
+  tabLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tabLabelActive: {
+    color: colors.accent,
   },
 });
