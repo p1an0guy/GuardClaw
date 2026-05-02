@@ -14,11 +14,17 @@ from app.models.schemas import (
     AcknowledgeResponse,
     ActiveIncidentResponse,
     AlertAuditEntry,
+    Camera,
+    CameraAlertSchedule,
+    CreateCameraRequest,
+    CreateScheduleRequest,
     HouseholdState,
     SimulateEventRequest,
     TimelineEntry,
+    UpdateCameraRequest,
 )
 from app.services.alert_sources import AlertSourceService
+from app.services.camera_service import CameraService
 from app.services.demo_seed import ensure_demo_seed
 from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
@@ -93,3 +99,57 @@ async def get_timeline() -> list[TimelineEntry]:
 @app.get("/api/alerts/audit-log", response_model=list[AlertAuditEntry])
 async def get_audit_log() -> list[AlertAuditEntry]:
     return await SupabaseAuditService(settings).list_entries()
+
+
+@app.get("/api/cameras", response_model=list[Camera])
+async def list_cameras() -> list[Camera]:
+    return await CameraService(settings).list_cameras()
+
+
+@app.get("/api/cameras/{camera_id}", response_model=Camera)
+async def get_camera(camera_id: str) -> Camera:
+    from fastapi import HTTPException
+    result = await CameraService(settings).get_camera(camera_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Camera not found")
+    return result
+
+
+@app.post("/api/cameras", response_model=Camera, status_code=201)
+async def create_camera(request: CreateCameraRequest) -> Camera:
+    return await CameraService(settings).create_camera(
+        request.label, request.location_label, request.stream_url
+    )
+
+
+@app.patch("/api/cameras/{camera_id}", response_model=Camera)
+async def update_camera(camera_id: str, request: UpdateCameraRequest) -> Camera:
+    return await CameraService(settings).update_camera(
+        camera_id,
+        label=request.label,
+        location_label=request.location_label,
+        stream_url=request.stream_url,
+        enabled=request.enabled,
+    )
+
+
+@app.delete("/api/cameras/{camera_id}", status_code=204)
+async def delete_camera(camera_id: str) -> None:
+    await CameraService(settings).delete_camera(camera_id)
+
+
+@app.get("/api/cameras/{camera_id}/schedules", response_model=list[CameraAlertSchedule])
+async def list_schedules(camera_id: str) -> list[CameraAlertSchedule]:
+    return await CameraService(settings).list_schedules(camera_id)
+
+
+@app.post("/api/cameras/{camera_id}/schedules", response_model=CameraAlertSchedule, status_code=201)
+async def create_schedule(camera_id: str, request: CreateScheduleRequest) -> CameraAlertSchedule:
+    return await CameraService(settings).create_schedule(
+        camera_id, request.day_of_week, request.start_time, request.end_time
+    )
+
+
+@app.delete("/api/cameras/{camera_id}/schedules/{schedule_id}", status_code=204)
+async def delete_schedule(camera_id: str, schedule_id: str) -> None:
+    await CameraService(settings).delete_schedule(schedule_id)

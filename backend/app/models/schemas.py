@@ -272,3 +272,44 @@ class AlertAuditEntry(BaseModel):
     ingested_at: datetime = Field(default_factory=utc_now)
     pipeline_triggered: bool = False
     raw: dict[str, Any] = Field(default_factory=dict)
+
+
+class Camera(BaseModel):
+    id: str
+    family_id: str
+    label: str
+    location_label: str
+    stream_url: str | None = None
+    enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class CameraAlertSchedule(BaseModel):
+    id: str
+    camera_id: str
+    family_id: str
+    day_of_week: int
+    start_time: str
+    end_time: str
+    enabled: bool
+    created_at: datetime
+
+
+class CreateCameraRequest(BaseModel):
+    label: str
+    location_label: str
+    stream_url: str | None = None
+
+
+class UpdateCameraRequest(BaseModel):
+    label: str | None = None
+    location_label: str | None = None
+    stream_url: str | None = None
+    enabled: bool | None = None
+
+
+class CreateScheduleRequest(BaseModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str  # e.g. '23:00'
+    end_time: str    # e.g. '05:00'
