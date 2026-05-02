@@ -38,6 +38,9 @@ export default function AlertsLog({ notifications }: Props) {
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>{n.title}</Text>
                 <Text numberOfLines={3} style={styles.cardBody}>{n.body}</Text>
+                {n.lat != null && n.lng != null ? (
+                  <Text style={styles.cardLocation}>📍 {n.lat.toFixed(4)}, {n.lng.toFixed(4)}</Text>
+                ) : null}
                 <Text style={styles.cardTime}>{formatRelativeTime(n.created_at)}</Text>
               </View>
             </View>
@@ -118,6 +121,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 3,
+  },
+  cardLocation: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
   },
   cardTime: {
     color: colors.textMuted,
