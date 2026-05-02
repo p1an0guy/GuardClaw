@@ -27,16 +27,24 @@ from app.services.alert_sources import AlertSourceService
 from app.services.camera_service import CameraService
 from app.services.cctv_monitor import CCTVMonitor
 from app.services.demo_seed import ensure_demo_seed
+from app.services.hermes_adapter import HermesAdapter
+from app.services.messaging import MessagingService
+from app.services.notification_writer import write_notifications
+from app.services.risk_engine import build_action_plan
 from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
 from app.services.supabase_audit import SupabaseAuditService
 from app.services.supabase_household import SupabaseHouseholdService
 
+audit_service = SupabaseAuditService(settings)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logging.basicConfig(level=logging.INFO)
     store.initialize()
     ensure_demo_seed(store)
+    await audit_service.bootstrap()
     poller_task = asyncio.create_task(NWSPoller().run(store, settings))
     cctv_monitor = CCTVMonitor(settings) if settings.cctv_enabled else None
     if cctv_monitor:
@@ -104,7 +112,7 @@ async def get_timeline() -> list[TimelineEntry]:
 
 @app.get("/api/alerts/audit-log", response_model=list[AlertAuditEntry])
 async def get_audit_log() -> list[AlertAuditEntry]:
-    return await SupabaseAuditService(settings).list_entries()
+    return await audit_service.list_entries()
 
 
 @app.get("/api/cameras", response_model=list[Camera])
