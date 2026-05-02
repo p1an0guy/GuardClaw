@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -117,8 +118,8 @@ const upsertMessage = (messages: FamilyMessage[], message: FamilyMessage) => {
 };
 
 export default function HomeScreen() {
-  const [members, setMembers] = useState<FamilyMember[]>(() => sortMembers(mockMembers));
-  const [messages, setMessages] = useState<FamilyMessage[]>(mockMessages);
+  const [members, setMembers] = useState<FamilyMember[]>(() => isSupabaseConfigured ? [] : sortMembers(mockMembers));
+  const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -128,6 +129,7 @@ export default function HomeScreen() {
   const [sending, setSending] = useState(false);
   const currentMemberIdRef = useRef<string | null>(SUPABASE_MEMBER_ID || mockMembers[0]?.id || null);
   const lastLocationPushRef = useRef(0);
+  const batteryRef = useRef<number>(100);
   const membersRef = useRef<FamilyMember[]>(members);
 
   const currentMember = useMemo(() => {
@@ -146,6 +148,19 @@ export default function HomeScreen() {
     membersRef.current = members;
     currentMemberIdRef.current = SUPABASE_MEMBER_ID || currentMember?.id || members[0]?.id || null;
   }, [currentMember?.id, members]);
+
+  useEffect(() => {
+    let sub: Battery.Subscription | null = null;
+    const init = async () => {
+      const level = await Battery.getBatteryLevelAsync();
+      batteryRef.current = Math.round(level * 100);
+      sub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+        batteryRef.current = Math.round(batteryLevel * 100);
+      });
+    };
+    init();
+    return () => { sub?.remove(); };
+  }, []);
 
   const updateCurrentMemberLocally = useCallback((patch: Partial<FamilyMember>) => {
     const now = new Date().toISOString();
@@ -177,7 +192,7 @@ export default function HomeScreen() {
         family_id: SUPABASE_FAMILY_ID || 'local-family',
         name: SUPABASE_MEMBER_NAME,
         status: patch.status ?? 'Moving',
-        battery: patch.battery ?? 88,
+        battery: patch.battery ?? batteryRef.current,
         lat: patch.lat ?? null,
         lng: patch.lng ?? null,
         updated_at: patch.updated_at ?? now,
@@ -211,7 +226,7 @@ export default function HomeScreen() {
         family_id: SUPABASE_FAMILY_ID,
         name: current?.name || SUPABASE_MEMBER_NAME,
         status: patch.status ?? current?.status ?? 'Moving',
-        battery: patch.battery ?? current?.battery ?? 88,
+        battery: patch.battery ?? current?.battery ?? batteryRef.current,
         lat: patch.lat ?? current?.lat ?? null,
         lng: patch.lng ?? current?.lng ?? null,
         updated_at: now,
@@ -278,9 +293,18 @@ export default function HomeScreen() {
       };
 
       setCurrentLocation(nextLocation);
+
+      const derivedStatus: MemberStatus | undefined =
+        coords.speed != null
+          ? coords.speed > 0.5
+            ? 'Moving'
+            : 'Safe'
+          : undefined;
+
       updateCurrentMemberLocally({
         lat: nextLocation.latitude,
         lng: nextLocation.longitude,
+        ...(derivedStatus && { status: derivedStatus }),
       });
 
       if (!isSupabaseConfigured) {
@@ -297,6 +321,8 @@ export default function HomeScreen() {
       persistCurrentMember({
         lat: nextLocation.latitude,
         lng: nextLocation.longitude,
+        ...(derivedStatus && { status: derivedStatus }),
+        battery: batteryRef.current,
       }).catch((error: Error) => {
         setNotice(`Location sync failed: ${error.message}`);
       });
