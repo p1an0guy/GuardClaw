@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, getActiveIncident, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
-  AlertAuditEntry,
   CameraSignal,
   HouseholdMember,
   HouseholdState,
@@ -36,8 +35,8 @@ function formatTimestamp(value?: string | null): string {
 
 function memberStatusLine(member: HouseholdMember): string {
   const speed = member.location?.speed_mps != null ? ` • ${Math.round(member.location.speed_mps * 2.237)} mph` : "";
-  const displayStatus = member.mobile_status ?? member.status.replaceAll("_", " ");
-  return `${member.name}: ${displayStatus.toUpperCase()}${speed}`;
+  const mobile = member.mobile_status ? ` • mobile: ${member.mobile_status}` : "";
+  return `${member.name}: ${member.status.replaceAll("_", " ").toUpperCase()}${speed}${mobile}`;
 }
 
 function routeLine(member: HouseholdMember, intents: NotificationIntent[]): string {
@@ -63,26 +62,49 @@ function sourceFreshness(active: ActiveIncidentResponse | null): string {
   return incident.is_simulated ? "Replay fixture" : "Official source";
 }
 
-function CctvPanel({ label, signal, featured = false }: { label: string; signal?: CameraSignal | null; featured?: boolean }) {
-  const areaClass = label.toLowerCase().replace(" ", "");
+function CctvHud({ camId, timestamp }: { camId: string; timestamp: string }) {
+  return (
+    <>
+      <p className="cctv-label">
+        <span className="cctv-rec">● REC</span> {camId}
+      </p>
+      <p className="cctv-timestamp">{timestamp}</p>
+    </>
+  );
+}
+
+function CctvPanel({
+  label,
+  imageSrc,
+  signal,
+  featured = false,
+}: {
+  label: string;
+  imageSrc: string;
+  signal?: CameraSignal | null;
+  featured?: boolean;
+}) {
+  const areaClass = "";
+  const [ts, setTs] = useState("");
+  useEffect(() => {
+    setTs(new Date().toLocaleString("en-US", {
+      month: "2-digit", day: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }));
+  }, []);
   return (
     <section className={`ops-panel ${areaClass}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageSrc} alt={`${label} feed`} className="cctv-video" />
+      <div className="cctv-shade" />
+      <CctvHud camId={label} timestamp={ts} />
       {featured && signal ? (
         <>
-          <video aria-label={`${signal.label} prerecorded CCTV clip`} autoPlay loop muted playsInline className="cctv-video">
-            <source src={signal.clip_url} type="video/mp4" />
-          </video>
-          <div className="cctv-shade" />
-          <p className="cctv-label">{signal.label}</p>
           <p className="cctv-status">{signal.occupancy_confirmed ? "OCCUPANCY CONFIRMED" : "NO OCCUPANCY"}</p>
-          <p className="cctv-note">{Math.round(signal.confidence * 100)}% confidence • prerecorded</p>
+          <p className="cctv-note">{Math.round(signal.confidence * 100)}% confidence • {signal.label}</p>
         </>
       ) : (
-        <>
-          <p className="cctv-label">{label}</p>
-          <p className="no-signal">STANDBY</p>
-          <p className="cctv-note">Prerecorded feed slot</p>
-        </>
+        <p className="cctv-note">CAM {label.replace("CCTV ", "")} • LIVE</p>
       )}
     </section>
   );
@@ -92,7 +114,6 @@ export default function DashboardPage() {
   const [household, setHousehold] = useState<HouseholdState | null>(null);
   const [active, setActive] = useState<ActiveIncidentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -107,16 +128,14 @@ export default function DashboardPage() {
   const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse, auditLogResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
-      getTimeline(),
-      getAuditLog()
+      getTimeline()
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
     setTimeline(timelineResponse);
-    setAuditLog(auditLogResponse);
   }
 
   useEffect(() => {
@@ -125,12 +144,6 @@ export default function DashboardPage() {
         setError(err instanceof Error ? err.message : "Unable to load GuardClaw data.");
       })
       .finally(() => setLoading(false));
-
-    const interval = setInterval(() => {
-      getAuditLog().then(setAuditLog).catch(() => {});
-      getHousehold().then(setHousehold).catch(() => {});
-    }, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   async function handleSimulate() {
@@ -251,9 +264,9 @@ export default function DashboardPage() {
         <section className="ops-panel area-members ops-members">
           <h2>Member status</h2>
           <div className="member-lines">
-            {household?.members.map((member) => (
+            {household?.members.map((member, index) => (
               <p key={member.id}>
-                <strong>{memberStatusLine(member)}</strong>
+                <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
                 <span>{routeLine(member, notificationIntents)}</span>
               </p>
             )) ?? <p className="muted-text">Loading household members...</p>}
@@ -277,32 +290,12 @@ export default function DashboardPage() {
           <p>Hermes handles Telegram and outbound calls. Backend validates classification and logs each result.</p>
         </section>
 
-        <section className="ops-panel area-audit">
-          <h2>Alert audit log</h2>
-          <div className="audit-list">
-            {auditLog.length === 0 ? (
-              <p className="muted-text">No alerts ingested yet.</p>
-            ) : (
-              auditLog.map((entry) => (
-                <article key={entry.id} className="audit-entry">
-                  <span className="audit-source">{entry.source_kind.toUpperCase()}</span>
-                  <span className={`audit-severity sev-${entry.severity}`}>{entry.severity.toUpperCase()}</span>
-                  <p className="audit-title">{entry.title}</p>
-                  <p className="audit-meta" suppressHydrationWarning>
-                    {entry.event_type} •{" "}
-                    {new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }).format(new Date(entry.ingested_at))}
-                    {entry.pipeline_triggered ? " • pipeline triggered" : ""}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-
-        <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
-        <CctvPanel label="CCTV 2" />
-        <CctvPanel label="CCTV 3" />
-        <CctvPanel label="CCTV 4" />
+        <div className="cctv-grid">
+          <CctvPanel featured label="CCTV 1" imageSrc="/cctv/cam1.png" signal={cameraSignal} />
+          <CctvPanel label="CCTV 2" imageSrc="/cctv/cam2.png" />
+          <CctvPanel label="CCTV 3" imageSrc="/cctv/cam3.png" />
+          <CctvPanel label="CCTV 4" imageSrc="/cctv/cam4.png" />
+        </div>
 
         <section className="ops-panel area-chat ops-chat">
           <h2>Live chat with GuardClaw</h2>
