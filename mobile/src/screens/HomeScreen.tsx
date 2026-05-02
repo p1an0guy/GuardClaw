@@ -214,7 +214,7 @@ export default function HomeScreen() {
       }
 
       const newMember: FamilyMember = {
-        id: `local-${Date.now()}`,
+        id: SUPABASE_MEMBER_ID || `local-${Date.now()}`,
         family_id: SUPABASE_FAMILY_ID || 'local-family',
         name: SUPABASE_MEMBER_NAME,
         status: patch.status ?? 'Moving',
