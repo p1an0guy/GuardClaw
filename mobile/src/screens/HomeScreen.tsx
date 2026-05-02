@@ -21,9 +21,10 @@ import {
   type SupabaseMemberRow,
   type SupabaseMessageRow,
   type SupabaseNotificationRow,
+  type SupabaseSavedLocationRow,
 } from '../lib/supabase';
 import { colors } from '../theme';
-import { type AppNotification, type Coordinate, type FamilyMember, type FamilyMessage, MEMBER_STATUSES, type MemberStatus, type QuickActionId } from '../types';
+import { type AppNotification, type Coordinate, type FamilyMember, type FamilyMessage, type LocationLabel, MEMBER_STATUSES, type MemberStatus, type QuickActionId, type SavedLocation } from '../types';
 
 type LocationState = 'requesting' | 'live' | 'denied' | 'unavailable';
 
@@ -127,6 +128,7 @@ export default function HomeScreen() {
   const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [banner, setBanner] = useState<{ title: string; lat: number | null; lng: number | null } | null>(null);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -458,7 +460,7 @@ export default function HomeScreen() {
     const loadInitialData = async () => {
       setLoadingBackend(true);
 
-      const [memberResponse, messageResponse, notifResponse] = await Promise.all([
+      const [memberResponse, messageResponse, notifResponse, locResponse] = await Promise.all([
         client
           .from('members')
           .select('*')
@@ -476,6 +478,10 @@ export default function HomeScreen() {
           .eq('family_id', SUPABASE_FAMILY_ID)
           .order('created_at', { ascending: false })
           .limit(50),
+        client
+          .from('saved_locations')
+          .select('*')
+          .eq('family_id', SUPABASE_FAMILY_ID),
       ]);
 
       if (!active) {
@@ -497,6 +503,9 @@ export default function HomeScreen() {
       );
       if (notifResponse.data) {
         setNotifications(notifResponse.data as AppNotification[]);
+      }
+      if (locResponse.data) {
+        setSavedLocations(locResponse.data as SavedLocation[]);
       }
       setNotice(null);
       setLoadingBackend(false);
@@ -660,6 +669,40 @@ export default function HomeScreen() {
     [currentLocation, getFreshLocation, persistCurrentMember, sendMessage],
   );
 
+  const handleMarkLocation = useCallback(async (memberId: string, label: LocationLabel) => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member?.lat || !member?.lng || !supabase || !isSupabaseConfigured || !SUPABASE_FAMILY_ID) return;
+    await supabase.from('saved_locations').insert({
+      family_id: SUPABASE_FAMILY_ID,
+      member_id: memberId,
+      label,
+      lat: member.lat,
+      lng: member.lng,
+    });
+    setSavedLocations((prev) => [
+      ...prev.filter((s) => !(s.member_id === memberId && s.label === label)),
+      { id: `${memberId}-${label}`, family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: member.lat!, lng: member.lng!, created_at: new Date().toISOString() },
+    ]);
+  }, [members]);
+
+  const PROXIMITY_METERS = 100;
+  const memberLocationLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    for (const m of members) {
+      if (m.lat == null || m.lng == null) continue;
+      for (const loc of savedLocations) {
+        if (loc.member_id !== m.id) continue;
+        const dLat = (m.lat - loc.lat) * 111320;
+        const dLng = (m.lng - loc.lng) * 111320 * Math.cos((loc.lat * Math.PI) / 180);
+        if (Math.sqrt(dLat * dLat + dLng * dLng) <= PROXIMITY_METERS) {
+          labels[m.id] = loc.label.charAt(0).toUpperCase() + loc.label.slice(1);
+          break;
+        }
+      }
+    }
+    return labels;
+  }, [members, savedLocations]);
+
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
   const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'alerts'>('home');
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
@@ -722,10 +765,13 @@ export default function HomeScreen() {
                 currentLocation={currentLocation}
                 focusedCoordinate={focusedCoordinate}
                 focusedMemberId={focusedMemberId}
+                isGuardian={currentMemberRole === 'guardian'}
                 locationState={locationState}
                 members={members}
+                onMarkLocation={handleMarkLocation}
+                savedLocations={savedLocations}
               />
-              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} onMemberPress={setFocusedMemberId} />
+              <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} memberLocationLabels={memberLocationLabels} members={members} onMemberPress={setFocusedMemberId} />
               <QuickActions disabled={loadingBackend || sending} onAction={handleQuickAction} />
             </>
           ) : activeTab === 'chat' ? (
