@@ -113,8 +113,8 @@ button:disabled {
     "alert alert summary"
     "timeline map members"
     "timeline cctv1 dispatch"
-    "timeline cctv2 chat"
-    "timeline cctv3 chat"
+    "timeline cctv2 audit"
+    "timeline cctv3 audit"
     "timeline cctv4 chat";
   gap: 14px;
   align-items: stretch;
@@ -763,6 +763,7 @@ button:disabled {
       "map"
       "members"
       "dispatch"
+      "audit"
       "cctv1"
       "cctv2"
       "cctv3"
@@ -814,4 +815,78 @@ button:disabled {
     bottom: 10px;
     max-width: calc(100% - 20px);
   }
+}
+
+.area-audit {
+  grid-area: audit;
+  padding: 16px;
+}
+
+.area-audit h2 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.area-audit h2::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin-top: 12px;
+  background: var(--line);
+}
+
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.audit-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.audit-source {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: var(--blue);
+  color: var(--paper);
+  letter-spacing: 0.05em;
+}
+
+.audit-severity {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}
+
+.sev-extreme { background: #7f0000; color: #fff; }
+.sev-high    { background: #b34700; color: #fff; }
+.sev-moderate { background: #7a6000; color: #fff; }
+.sev-low     { background: #2a4a2a; color: #ccc; }
+
+.audit-title {
+  flex: 1 1 100%;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.audit-meta {
+  flex: 1 1 100%;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin: 0;
 }

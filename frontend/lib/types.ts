@@ -175,3 +175,14 @@ export interface AcknowledgeResponse {
   timeline_entry: TimelineEntry;
   demo_mode: boolean;
 }
+
+export interface AlertAuditEntry {
+  id: string;
+  source_kind: SourceKind;
+  source_id: string;
+  event_type: string;
+  severity: string;
+  title: string;
+  ingested_at: string;
+  pipeline_triggered: boolean;
+}

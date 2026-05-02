@@ -1,66 +1,36 @@
 from __future__ import annotations
 
-import asyncio
-import logging
-from contextlib import asynccontextmanager
-
-from fastapi import Body, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from app.core.config import settings
-from app.db.session import store
+from app.core.config import Settings
 from app.models.schemas import (
-    AcknowledgeRequest,
-    AcknowledgeResponse,
     ActiveIncidentResponse,
-    AlertAuditEntry,
+    CameraSignal,
     HouseholdState,
-    SimulateEventRequest,
     TimelineEntry,
+    ThreatEvent,
 )
-from app.services.alert_sources import AlertSourceService
-from app.services.demo_seed import ensure_demo_seed
+from app.repositories.store import SQLiteStore
+from app.services.camera_signals import CameraSignalService
+from app.services.classifier import local_classify_alert
 from app.services.hermes_adapter import HermesAdapter
 from app.services.messaging import MessagingService
-from app.services.notification_writer import write_notifications
 from app.services.risk_engine import build_action_plan
-from app.services.nws_poller import NWSPoller
-from app.services.pipeline import run_alert_pipeline
 from app.services.supabase_household import SupabaseHouseholdService
+from app.services.demo_seed import ensure_demo_seed
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    logging.basicConfig(level=logging.INFO)
-    store.initialize()
-    ensure_demo_seed(store)
-    poller_task = asyncio.create_task(NWSPoller().run(store, settings))
-    yield
-    poller_task.cancel()
-
-
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.get("/health")
-async def health() -> dict[str, object]:
-    return {"status": "ok", "demo_mode": settings.demo_mode}
-
-
-@app.post("/api/simulate/event", response_model=ActiveIncidentResponse)
-async def simulate_event(
-    request: SimulateEventRequest | None = Body(default=None),
+async def run_alert_pipeline(
+    event: ThreatEvent,
+    store: SQLiteStore,
+    settings: Settings,
+    include_camera: bool = False,
+    camera_scenario: str = "front_walkway",
 ) -> ActiveIncidentResponse:
-    payload = request or SimulateEventRequest()
-    event = await AlertSourceService().create_event(payload)
-    camera_signal = CameraSignalService(settings).create_signal(payload.include_camera, payload.camera_scenario)
+    household = await SupabaseHouseholdService(settings).get_household()
+    if household is None:
+        household = store.get_household() or ensure_demo_seed(store)
+    else:
+        store.set_household(household)
+    camera_signal = CameraSignalService(settings).create_signal(include_camera, camera_scenario)
     hermes = HermesAdapter(settings)
     classification, classifier_note = await hermes.classify_alert(event, household, camera_signal)
     if classification is None:
@@ -69,8 +39,6 @@ async def simulate_event(
     plan = build_action_plan(event, household, classification, camera_signal)
 
     plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan)
-
-    await write_notifications(settings, household, plan)
 
     store.clear_timeline()
     store.add_timeline(
@@ -139,33 +107,3 @@ async def simulate_event(
         classification=classification,
         demo_mode=True,
     )
-
-
-@app.get("/api/incidents/active", response_model=ActiveIncidentResponse)
-async def get_active_incident() -> ActiveIncidentResponse:
-    return store.get_active_incident()
-
-
-@app.get("/api/household", response_model=HouseholdState)
-async def get_household() -> HouseholdState:
-    household = await SupabaseHouseholdService(settings).get_household()
-    if household is not None:
-        store.set_household(household)
-        return household
-    return store.get_household() or ensure_demo_seed(store)
-
-
-@app.post("/api/actions/acknowledge", response_model=AcknowledgeResponse)
-async def acknowledge_action(request: AcknowledgeRequest) -> AcknowledgeResponse:
-    entry = store.acknowledge(request.target_id, request.acknowledged_by, request.note)
-    return AcknowledgeResponse(acknowledged=True, timeline_entry=entry, demo_mode=True)
-
-
-@app.get("/api/actions/timeline", response_model=list[TimelineEntry])
-async def get_timeline() -> list[TimelineEntry]:
-    return store.list_timeline()
-
-
-@app.get("/api/alerts/audit-log", response_model=list[AlertAuditEntry])
-async def get_audit_log() -> list[AlertAuditEntry]:
-    return store.list_audit_log()

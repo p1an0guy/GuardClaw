@@ -1,0 +1,21 @@
+# Product Requirements (Ranking from greatest to least importance)
+
+1. Verified threat → automatic multichannel family outreach
+ This is the killer demo. GuardClaw ingests an official alert, recognizes it affects your household, then sends the right message to the right people on different channels. That shows real autonomy, context, and cross-platform orchestration in one move. It also maps cleanly to Hermes’s strength as a persistent multi-platform agent across Discord, SMS, email, Home Assistant, and more. FEMA’s IPAWS All-Hazards feed gives you a credible official alert source, which makes the demo feel real instead of simulated.
+2. Household context engine that explains why the alert matters
+ The “wow” is not just that it sends alerts, but that it knows why this one matters now: Timmy is home alone, soccer starts soon, mom is away, and dad should be called first. This is the feature that upgrades GuardClaw from alert bot to agentic safety coordinator. It is also the cleanest way to score on innovation and social good because it personalizes the response to actual household needs rather than blasting generic warnings. Kiro’s steering/specs are a strong fit here because they let you encode household rules and escalation logic consistently.
+3. Live dashboard with “Why this alert?” and action timeline
+ Judges love visible intelligence. A calm dashboard that shows source verification, affected people, outgoing actions, acknowledgements, and rationale makes the autonomy legible. This is the difference between “it sent a text” and “it reasoned through a situation.” It also makes your safety/privacy story much stronger because every action is inspectable and explainable. Kiro’s hooks/spec-driven workflow help you make this polished quickly and consistently.
+4. One camera or home-sensor integration that changes the plan
+ Example: the alert comes in, and GuardClaw sees via Frigate/Home Assistant that someone is actually home, so it escalates differently. This lands hard in demos because it turns static alerts into situational awareness. The trick is to keep it to one obvious signal, not full-blown computer vision ambition. Hermes already supports Home Assistant as a surface/integration point, which makes this more feasible than it sounds.
+5. Voice call to the primary guardian
+ A real outbound call is a huge theatrical moment. Texts and DMs are good; a phone call feels urgent and memorable. This is especially good as an escalation step after SMS/Discord to show GuardClaw adapts channel by severity. It is slightly less foundational than the first four, but in a live demo it punches above its weight. Hermes is designed for multi-channel delivery, so this fits the platform story.
+6. Remote guardian commands like “status?”, “acknowledge”, or “safe mode”
+ This makes the agent feel alive and useful beyond detection. A parent messaging “status?” from afar and getting a concise household summary is very compelling. It also reinforces that GuardClaw is not just a one-way siren; it is an interactive safety operator. OpenClaw-style allowlisting/pairing concepts help this feel safer if you mention role-based access.
+7. Opt-in location/ETA awareness
+ Useful, but risky in presentation. If framed badly, it sounds creepy fast. If framed well as explicit opt-in “who is en route / who is home / ETA to pickup,” it becomes practical. I would only demo a very soft version like “mom is 18 minutes away” or “nobody is currently en route,” not detailed tracking. This has solid utility but lower wow-to-risk ratio than the top items.
+8. Neighbor / emergency-contact escalation
+ This is good social-good substance, but less flashy than direct family coordination. It is best as a line in the action plan: “If no guardian acknowledges in 2 minutes, email/text the emergency contact.” That helps the realism story more than the spectacle story.
+9. Instagram/X/local-news broad social ingestion
+ Important infrastructure, but not especially demo-wow on its own. Judges do not care that much whether the signal came from three feeds or ten. They care that the system verified it and acted intelligently. Keep the ingestion story simple: official alert + one public source for corroboration. FEMA’s IPAWS already gives you the strongest credibility anchor.
+

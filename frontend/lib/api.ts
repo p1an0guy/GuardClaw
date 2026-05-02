@@ -1,6 +1,7 @@
 import type {
   AcknowledgeResponse,
   ActiveIncidentResponse,
+  AlertAuditEntry,
   HouseholdState,
   SourceKind,
   TimelineEntry
@@ -53,4 +54,8 @@ export function acknowledgeAction(targetId: string): Promise<AcknowledgeResponse
       acknowledged_by: "dashboard-demo"
     })
   });
+}
+
+export function getAuditLog(): Promise<AlertAuditEntry[]> {
+  return requestJson<AlertAuditEntry[]>("/api/alerts/audit-log");
 }
