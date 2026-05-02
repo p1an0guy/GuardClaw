@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
+  AlertAuditEntry,
   CameraSignal,
   HouseholdMember,
   HouseholdState,
@@ -114,6 +115,7 @@ export default function DashboardPage() {
   const [household, setHousehold] = useState<HouseholdState | null>(null);
   const [active, setActive] = useState<ActiveIncidentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -128,14 +130,16 @@ export default function DashboardPage() {
   const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse, auditLogResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
-      getTimeline()
+      getTimeline(),
+      getAuditLog()
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
     setTimeline(timelineResponse);
+    setAuditLog(auditLogResponse);
   }
 
   useEffect(() => {
@@ -144,6 +148,11 @@ export default function DashboardPage() {
         setError(err instanceof Error ? err.message : "Unable to load GuardClaw data.");
       })
       .finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      getAuditLog().then(setAuditLog).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   async function handleSimulate() {
@@ -290,12 +299,32 @@ export default function DashboardPage() {
           <p>Hermes handles Telegram and outbound calls. Backend validates classification and logs each result.</p>
         </section>
 
-        <div className="cctv-grid">
-          <CctvPanel featured label="CCTV 1" imageSrc="/cctv/cam1.png" signal={cameraSignal} />
-          <CctvPanel label="CCTV 2" imageSrc="/cctv/cam2.png" />
-          <CctvPanel label="CCTV 3" imageSrc="/cctv/cam3.png" />
-          <CctvPanel label="CCTV 4" imageSrc="/cctv/cam4.png" />
-        </div>
+        <section className="ops-panel area-audit">
+          <h2>Alert audit log</h2>
+          <div className="audit-list">
+            {auditLog.length === 0 ? (
+              <p className="muted-text">No alerts ingested yet.</p>
+            ) : (
+              auditLog.map((entry) => (
+                <article key={entry.id} className="audit-entry">
+                  <span className="audit-source">{entry.source_kind.toUpperCase()}</span>
+                  <span className={`audit-severity sev-${entry.severity}`}>{entry.severity.toUpperCase()}</span>
+                  <p className="audit-title">{entry.title}</p>
+                  <p className="audit-meta">
+                    {entry.event_type} •{" "}
+                    {new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }).format(new Date(entry.ingested_at))}
+                    {entry.pipeline_triggered ? " • pipeline triggered" : ""}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
+        <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
+        <CctvPanel label="CCTV 2" />
+        <CctvPanel label="CCTV 3" />
+        <CctvPanel label="CCTV 4" />
 
         <section className="ops-panel area-chat ops-chat">
           <h2>Live chat with GuardClaw</h2>
