@@ -57,6 +57,15 @@ export type SupabaseNotificationRow = {
   created_at: string;
 };
 
+export type SupabaseSavedLocationRow = {
+  id: string;
+  family_id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -108,6 +117,12 @@ export type Database = {
         Row: SupabaseNotificationRow;
         Insert: Omit<SupabaseNotificationRow, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Omit<SupabaseNotificationRow, 'id'>>;
+        Relationships: [];
+      };
+      saved_locations: {
+        Row: SupabaseSavedLocationRow;
+        Insert: Omit<SupabaseSavedLocationRow, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<SupabaseSavedLocationRow, 'id'>>;
         Relationships: [];
       };
     };

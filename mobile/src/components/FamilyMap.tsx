@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type LatLng, type Region } from 'react-native-maps';
 
 import { colors, shadow, statusTheme } from '../theme';
-import type { Coordinate, FamilyMember } from '../types';
+import type { Coordinate, FamilyMember, LocationLabel, SavedLocation } from '../types';
 import { hasValidCoordinate } from '../utils/geo';
 
 const DEFAULT_REGION: Region = {
@@ -36,8 +36,17 @@ type Props = {
   currentLocation: Coordinate | null;
   focusedCoordinate?: Coordinate | null;
   focusedMemberId?: string | null;
+  isGuardian?: boolean;
   locationState: 'requesting' | 'live' | 'denied' | 'unavailable';
   members: FamilyMember[];
+  onMarkLocation?: (label: LocationLabel) => void;
+  savedLocations?: SavedLocation[];
+};
+
+const LOCATION_ICONS: Record<LocationLabel, keyof typeof Ionicons.glyphMap> = {
+  home: 'home',
+  school: 'school',
+  work: 'briefcase',
 };
 
 const initialsFor = (name: string) =>
@@ -77,7 +86,7 @@ const regionForCoordinates = (coordinates: LatLng[]): Region => {
   };
 };
 
-export default function FamilyMap({ currentLocation, focusedCoordinate, focusedMemberId, locationState, members }: Props) {
+export default function FamilyMap({ currentLocation, focusedCoordinate, focusedMemberId, isGuardian, locationState, members, onMarkLocation, savedLocations = [] }: Props) {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -189,6 +198,17 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
             </Marker>
           );
         })}
+        {savedLocations.map((loc) => (
+          <Marker
+            coordinate={{ latitude: loc.lat, longitude: loc.lng }}
+            key={loc.id}
+            title={loc.label.charAt(0).toUpperCase() + loc.label.slice(1)}
+          >
+            <View style={styles.flagMarker}>
+              <Ionicons color={colors.accent} name={LOCATION_ICONS[loc.label as LocationLabel] ?? 'flag'} size={18} />
+            </View>
+          </Marker>
+        ))}
       </MapView>
 
       <View style={styles.mapTopBar}>
@@ -201,6 +221,21 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
           <Text style={styles.gpsText}>{liveLabel}</Text>
         </View>
       </View>
+
+      {isGuardian && onMarkLocation ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            ActionSheetIOS.showActionSheetWithOptions(
+              { options: ['Cancel', 'Home', 'School', 'Work'], cancelButtonIndex: 0 },
+              (idx) => { if (idx > 0) onMarkLocation((['home', 'school', 'work'] as LocationLabel[])[idx - 1]); },
+            );
+          }}
+          style={({ pressed }) => [styles.markButton, pressed && styles.recenterButtonPressed]}
+        >
+          <Ionicons color={colors.black} name="pin" size={20} />
+        </Pressable>
+      ) : null}
 
       <Pressable accessibilityRole="button" onPress={recenter} style={({ pressed }) => [styles.recenterButton, pressed && styles.recenterButtonPressed]}>
         <Ionicons color={colors.black} name="locate" size={20} />
@@ -287,6 +322,29 @@ const styles = StyleSheet.create({
   recenterButtonPressed: {
     opacity: 0.82,
     transform: [{ scale: 0.98 }],
+  },
+  markButton: {
+    ...shadow,
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    bottom: 16,
+    height: 48,
+    justifyContent: 'center',
+    left: 16,
+    position: 'absolute',
+    width: 48,
+  },
+  flagMarker: {
+    ...shadow,
+    alignItems: 'center',
+    backgroundColor: 'rgba(8, 11, 16, 0.9)',
+    borderColor: colors.accent,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
   },
   marker: {
     ...shadow,

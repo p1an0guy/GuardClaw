@@ -10,6 +10,7 @@ import { formatRelativeTime } from '../utils/time';
 type Props = {
   currentLocation: Coordinate | null;
   loading?: boolean;
+  memberLocationLabels?: Record<string, string>;
   members: FamilyMember[];
   onMemberPress?: (memberId: string) => void;
 };
@@ -22,7 +23,7 @@ const initialsFor = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
-export default function StatusDashboard({ currentLocation, loading, members, onMemberPress }: Props) {
+export default function StatusDashboard({ currentLocation, loading, memberLocationLabels = {}, members, onMemberPress }: Props) {
   const [expanded, setExpanded] = useState(false);
   const panRef = useRef(
     PanResponder.create({
@@ -77,7 +78,9 @@ export default function StatusDashboard({ currentLocation, loading, members, onM
                       ]}
                     >
                       <View style={[styles.statusDot, { backgroundColor: theme.color }]} />
-                      <Text style={[styles.statusText, { color: theme.color }]}>{member.status}</Text>
+                      <Text style={[styles.statusText, { color: theme.color }]}>
+                        {member.status}{memberLocationLabels[member.id] ? ` · at ${memberLocationLabels[member.id]}` : ''}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.metaRow}>
