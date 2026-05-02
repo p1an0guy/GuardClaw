@@ -88,6 +88,45 @@ class CCTVAlertPipeline:
 
         return output_path
 
+    async def _extract_and_upload_clip(self, source_path: str, camera_id: str, timestamp: float) -> str | None:
+        """Extract a 25s clip from a video file and upload to Supabase Storage."""
+        tmp_dir = Path(tempfile.gettempdir()) / "guardclaw_clips"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        ts_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        output_path = tmp_dir / f"{camera_id}_{ts_str}.mp4"
+
+        loop = asyncio.get_running_loop()
+
+        def _extract():
+            cap = cv2.VideoCapture(source_path)
+            if not cap.isOpened():
+                return False
+            fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+            max_frames = int(fps * 25)
+            count = 0
+            while count < max_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                writer.write(frame)
+                count += 1
+            writer.release()
+            cap.release()
+            return count > 0
+
+        ok = await loop.run_in_executor(None, _extract)
+        if not ok:
+            logger.error("Failed to extract clip from %s", source_path)
+            return None
+
+        clip_url = await self._upload_clip(output_path, camera_id, timestamp)
+        output_path.unlink(missing_ok=True)
+        return clip_url
+
     async def _upload_clip(self, clip_path: Path, camera_id: str, timestamp: float) -> str | None:
         """Upload clip to Supabase Storage bucket 'cctv-clips'. Returns public URL."""
         if not (self.settings.supabase_url and self.settings.supabase_key):

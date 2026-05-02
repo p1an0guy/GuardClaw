@@ -171,7 +171,9 @@ async def delete_schedule(camera_id: str, schedule_id: str) -> None:
 
 @app.post("/api/cameras/{camera_id}/simulate-detection")
 async def simulate_detection(camera_id: str) -> dict[str, object]:
-    """Simulate a person detection event on a camera (bypasses schedule check)."""
+    """Simulate a person detection event on a camera with clip extraction."""
+    import asyncio
+    import os
     import time
     from app.services.cctv_alert_pipeline import CCTVAlertPipeline
 
@@ -184,20 +186,28 @@ async def simulate_detection(camera_id: str) -> dict[str, object]:
     timestamp = time.time()
     confidence = 0.92
 
-    # Send webhook + notification (skip clip extraction since no buffer in simulation)
+    # Extract a 20-30s clip directly from the video file using ffmpeg
+    clip_url = None
+    source = cam.get("stream_url") or ""
+    if source and not source.startswith(("rtsp://", "http://", "https://", "/")):
+        source = os.path.join(settings.cctv_video_base_path, source)
+
+    if source and os.path.exists(source):
+        clip_url = await pipeline._extract_and_upload_clip(source, camera_id, timestamp)
+
     await pipeline._send_webhook(
         camera_id=camera_id,
         camera_label=cam["label"],
         location_label=cam["location_label"],
         timestamp=timestamp,
         confidence=confidence,
-        clip_url=None,
+        clip_url=clip_url,
     )
     await pipeline._write_notification(
         camera_label=cam["label"],
         location_label=cam["location_label"],
         confidence=confidence,
-        clip_url=None,
+        clip_url=clip_url,
     )
 
     return {
@@ -205,5 +215,6 @@ async def simulate_detection(camera_id: str) -> dict[str, object]:
         "camera_id": camera_id,
         "camera_label": cam["label"],
         "confidence": confidence,
-        "message": f"Simulated person detection on {cam['label']} — webhook + notification dispatched.",
+        "clip_url": clip_url,
+        "message": f"Simulated person detection on {cam['label']} — clip extracted, webhook + notification dispatched.",
     }
