@@ -670,20 +670,20 @@ export default function HomeScreen() {
   );
 
   const handleMarkLocation = useCallback(async (memberId: string, label: LocationLabel) => {
-    const loc = currentLocationRef.current ?? currentLocation;
-    if (!loc || !supabase || !isSupabaseConfigured || !SUPABASE_FAMILY_ID) return;
+    const member = members.find((m) => m.id === memberId);
+    if (!member?.lat || !member?.lng || !supabase || !isSupabaseConfigured || !SUPABASE_FAMILY_ID) return;
     await supabase.from('saved_locations').insert({
       family_id: SUPABASE_FAMILY_ID,
       member_id: memberId,
       label,
-      lat: loc.latitude,
-      lng: loc.longitude,
+      lat: member.lat,
+      lng: member.lng,
     });
     setSavedLocations((prev) => [
       ...prev.filter((s) => !(s.member_id === memberId && s.label === label)),
-      { id: '', family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: loc.latitude, lng: loc.longitude, created_at: new Date().toISOString() },
+      { id: '', family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: member.lat!, lng: member.lng!, created_at: new Date().toISOString() },
     ]);
-  }, [currentLocation]);
+  }, [members]);
 
   const PROXIMITY_METERS = 100;
   const memberLocationLabels = useMemo(() => {
