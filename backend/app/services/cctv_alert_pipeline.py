@@ -177,12 +177,12 @@ class CCTVAlertPipeline:
             summary += f" Clip: {clip_url}"
 
         payload = {
-            "event_type": "cctv_person_detected",
+            "event_type": "cctv_motion_alert",
             "alert": {
                 "id": f"cctv_{camera_id}_{int(timestamp)}",
                 "source": "CCTV",
-                "event": "cctv_person_detected",
-                "severity": "High",
+                "event": f"Person Detected at {camera_label}",
+                "severity": "Severe",
                 "urgency": "Immediate",
                 "certainty": "Observed",
                 "headline": f"Motion Alert: {camera_label}",
@@ -193,9 +193,9 @@ class CCTVAlertPipeline:
             },
             "family_candidates": [],
             "policy": {
-                "allowed_channels": ["telegram", "call"],
+                "allowed_channels": ["telegram", "email"],
                 "max_recipients": 5,
-                "require_notify_severities": ["High", "Extreme"],
+                "require_notify_severities": ["Extreme", "Severe"],
             },
         }
 
