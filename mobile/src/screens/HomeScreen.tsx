@@ -157,6 +157,14 @@ export default function HomeScreen() {
       sub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
         batteryRef.current = Math.round(batteryLevel * 100);
       });
+      // Push battery to Supabase immediately on startup
+      if (supabase && isSupabaseConfigured && SUPABASE_MEMBER_ID) {
+        supabase
+          .from('members')
+          .update({ battery: batteryRef.current, updated_at: new Date().toISOString() })
+          .eq('id', SUPABASE_MEMBER_ID)
+          .then();
+      }
     };
     init();
     return () => { sub?.remove(); };
@@ -313,7 +321,7 @@ export default function HomeScreen() {
 
       const now = Date.now();
 
-      if (now - lastLocationPushRef.current < 15_000) {
+      if (now - lastLocationPushRef.current < 5_000) {
         return;
       }
 
