@@ -533,7 +533,16 @@ button:disabled {
 .legend-dot {
   width: 9px;
   height: 9px;
+  border-radius: 999px;
+  display: block;
+  background: #94A3B8;
 }
+
+.legend-dot.status-safe { background: #34D399; }
+.legend-dot.status-home { background: #60A5FA; }
+.legend-dot.status-moving { background: #FBBF24; }
+.legend-dot.status-needs_help { background: #F87171; }
+.legend-dot.status-offline { background: #94A3B8; }
 
 .legend-dot.child,
 .member-map-dot.child {
@@ -550,19 +559,45 @@ button:disabled {
   background: var(--olive);
 }
 
-.member-map-dot,
+/* Status-based marker colors — matches mobile statusTheme */
+.member-map-dot {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #030712;
+  background: #94A3B8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.4);
+}
+
+.member-map-dot.status-safe {
+  background: #34D399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.45);
+}
+
+.member-map-dot.status-home {
+  background: #60A5FA;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.45);
+}
+
+.member-map-dot.status-moving,
+.member-map-dot.status-commuting {
+  background: #FBBF24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.45);
+}
+
+.member-map-dot.status-needs_help {
+  background: #F87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.5);
+}
+
+.member-map-dot.status-offline {
+  background: #94A3B8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.3);
+}
+
 .campus-map-dot {
   width: 18px;
   height: 18px;
   border: 3px solid var(--paper);
-  box-shadow: 0 0 0 5px rgba(74, 102, 119, 0.18);
-}
-
-.member-map-dot.child {
-  box-shadow: 0 0 0 6px rgba(189, 139, 47, 0.2);
-}
-
-.campus-map-dot {
   box-shadow: 0 0 0 7px rgba(82, 98, 77, 0.18);
 }
 

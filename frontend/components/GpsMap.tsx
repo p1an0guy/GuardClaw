@@ -108,7 +108,7 @@ export function GpsMap({ members }: GpsMapProps) {
       L.marker(latLng, {
         icon: L.divIcon({
           className: "member-map-marker",
-          html: `<span class="member-map-dot ${member.role === "child" ? "child" : "guardian"}"></span>`,
+          html: `<span class="member-map-dot status-${member.status.toLowerCase().replace(/\s+/g, "-")}"></span>`,
           iconAnchor: [10, 10],
           iconSize: [20, 20]
         })
@@ -132,8 +132,11 @@ export function GpsMap({ members }: GpsMapProps) {
         <span>{locatedCount > 0 ? `${locatedCount} household location dots from API` : "Waiting for mobile locations"}</span>
       </div>
       <div className="gps-map-legend" aria-label="Map legend">
-        <span><i className="legend-dot child" /> Child</span>
-        <span><i className="legend-dot guardian" /> Guardian</span>
+        <span><i className="legend-dot status-safe" /> Safe</span>
+        <span><i className="legend-dot status-home" /> Home</span>
+        <span><i className="legend-dot status-moving" /> Moving</span>
+        <span><i className="legend-dot status-needs_help" /> Needs Help</span>
+        <span><i className="legend-dot status-offline" /> Offline</span>
       </div>
     </div>
   );

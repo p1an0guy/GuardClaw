@@ -4,6 +4,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[3] / "backend" / ".env", override=False)
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+
 
 def _bool_env(name: str, default: bool) -> bool:
     raw = os.getenv(name)
