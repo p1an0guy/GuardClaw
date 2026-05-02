@@ -42,7 +42,8 @@ class SupabaseHouseholdService:
                 if not members_rows:
                     return None
                 location_rows = await self._fetch_optional(client, base, "member_locations")
-                contact_rows = await self._fetch_optional(client, base, "member_contacts")
+                member_ids = [str(r["id"]) for r in members_rows if r.get("id")]
+                contact_rows = await self._fetch_contacts(client, base, member_ids)
         except Exception:
             return None
 
@@ -84,6 +85,18 @@ class SupabaseHouseholdService:
                 "select": "*",
                 "order": "observed_at.desc",
             },
+        )
+        if response.status_code >= 400:
+            return []
+        data = response.json()
+        return data if isinstance(data, list) else []
+
+    async def _fetch_contacts(self, client: httpx.AsyncClient, base: str, member_ids: list[str]) -> list[dict[str, Any]]:
+        if not member_ids:
+            return []
+        response = await client.get(
+            f"{base}/rest/v1/member_contacts",
+            params={"member_id": f"in.({','.join(member_ids)})", "select": "*"},
         )
         if response.status_code >= 400:
             return []

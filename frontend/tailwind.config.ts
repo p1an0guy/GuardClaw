@@ -5,11 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#1f2933",
-        calm: "#eef6f1",
-        sage: "#78957a",
-        clay: "#b08968",
-        tide: "#497b8f"
+        ink: "#F3F7FB",
+        calm: "#101720",
+        sage: "#4FD1C5",
+        clay: "#F87171",
+        tide: "#60A5FA"
       },
       boxShadow: {
         soft: "0 24px 80px rgba(31, 41, 51, 0.10)"

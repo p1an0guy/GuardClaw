@@ -35,16 +35,19 @@ class Settings:
     hermes_model: str = os.getenv("HERMES_MODEL", "hermes-agent")
     use_hermes: bool = _bool_env("GUARDCLAW_USE_HERMES", False)
     hermes_timeout_seconds: float = float(os.getenv("HERMES_TIMEOUT_SECONDS", "12"))
-    supabase_url: str = os.getenv("SUPABASE_URL", os.getenv("EXPO_PUBLIC_SUPABASE_URL", ""))
+    supabase_url: str = os.getenv("SUPABASE_URL", os.getenv("EXPO_PUBLIC_SUPABASE_URL", "")).strip().strip("'\"")
     supabase_key: str = os.getenv(
         "SUPABASE_SERVICE_ROLE_KEY",
         os.getenv("SUPABASE_ANON_KEY", os.getenv("EXPO_PUBLIC_SUPABASE_ANON_KEY", "")),
-    )
-    supabase_family_id: str = os.getenv("SUPABASE_FAMILY_ID", os.getenv("EXPO_PUBLIC_FAMILY_ID", ""))
+    ).strip().strip("'\"")
+    supabase_family_id: str = os.getenv("SUPABASE_FAMILY_ID", os.getenv("EXPO_PUBLIC_FAMILY_ID", "")).strip().strip("'\"")
     cctv_clip_url: str = os.getenv(
         "GUARDCLAW_CCTV_CLIP_URL",
         "https://media.w3.org/2010/05/sintel/trailer.mp4",
     )
+    alert_radius_km: float = float(os.getenv("ALERT_RADIUS_KM", "16.0"))
+    hermes_webhook_url: str = (os.getenv("HERMES_WEBHOOK_BASE_URL", "").strip().strip("'\"\u2018\u2019\u201c\u201d").rstrip("/") + "/webhooks/family-alert-triage") if os.getenv("HERMES_WEBHOOK_BASE_URL") else ""
+    hermes_webhook_secret: str = os.getenv("HERMES_WEBHOOK_SECRET", "")
 
     def __post_init__(self) -> None:
         if self.cors_origins is None:

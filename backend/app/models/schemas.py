@@ -110,6 +110,8 @@ class ThreatEvent(BaseModel):
     source_kind: SourceKind
     source_name: str
     source_url: HttpUrl | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_live: bool = False
     is_simulated: bool = True
     demo_mode: bool = True
@@ -258,3 +260,15 @@ class AcknowledgeResponse(BaseModel):
     acknowledged: bool
     timeline_entry: TimelineEntry
     demo_mode: bool = True
+
+
+class AlertAuditEntry(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("audit"))
+    source_kind: SourceKind
+    source_id: str
+    event_type: str
+    severity: Severity
+    title: str
+    ingested_at: datetime = Field(default_factory=utc_now)
+    pipeline_triggered: bool = False
+    raw: dict[str, Any] = Field(default_factory=dict)

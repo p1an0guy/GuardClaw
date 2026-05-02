@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import radians, cos, sin, asin, sqrt
+
 from app.models.schemas import (
     ActionPlan,
     AffectedPerson,
@@ -19,14 +21,38 @@ from app.models.schemas import (
 )
 
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    return 2 * r * asin(sqrt(a))
+
+
+def _members_in_radius(household: HouseholdState, event: ThreatEvent, radius_km: float) -> list[str]:
+    if event.latitude is None or event.longitude is None:
+        return []
+    result: list[str] = []
+    for member in household.members:
+        if member.location is None:
+            continue
+        dist = _haversine_km(member.location.latitude, member.location.longitude, event.latitude, event.longitude)
+        if dist <= radius_km:
+            result.append(member.id)
+    return result
+
+
 def build_action_plan(
     event: ThreatEvent,
     household: HouseholdState,
     classification: AlertClassification,
     camera_signal: CameraSignal | None,
+    radius_km: float = 16.0,
 ) -> ActionPlan:
-    affected_people = _affected_people(household)
-    targets = _route_targets(household, classification.level)
+    proximity_ids = _members_in_radius(household, event, radius_km)
+    affected_people = _affected_people(household, proximity_ids, event)
+    targets = _route_targets(household, classification.level, proximity_ids)
     notification_intents = [
         NotificationIntent(
             member_id=member.id,
@@ -92,7 +118,7 @@ def build_action_plan(
     return plan.model_copy(update={"outbound_messages": _build_message_drafts(event, plan)})
 
 
-def _affected_people(household: HouseholdState) -> list[AffectedPerson]:
+def _affected_people(household: HouseholdState, proximity_member_ids: list[str], event: ThreatEvent) -> list[AffectedPerson]:
     affected: list[AffectedPerson] = []
     for member in sorted(household.members, key=lambda item: item.priority):
         if member.status == MemberStatus.NEEDS_HELP:
@@ -122,10 +148,25 @@ def _affected_people(household: HouseholdState) -> list[AffectedPerson]:
                     reason="Member appears to be commuting or moving based on phone status/location.",
                 )
             )
+    already_ids = {a.member_id for a in affected}
+    for member in sorted(household.members, key=lambda item: item.priority):
+        if member.id in proximity_member_ids and member.id not in already_ids and member.location is not None:
+            dist = _haversine_km(
+                member.location.latitude, member.location.longitude,
+                event.latitude, event.longitude,  # type: ignore[arg-type]
+            )
+            affected.append(
+                AffectedPerson(
+                    member_id=member.id,
+                    name=member.name,
+                    risk_level="proximity",
+                    reason=f"Member is within {dist:.1f} km of the alert area.",
+                )
+            )
     return affected
 
 
-def _route_targets(household: HouseholdState, level: AlertLevel) -> list[HouseholdMember]:
+def _route_targets(household: HouseholdState, level: AlertLevel, proximity_ids: list[str]) -> list[HouseholdMember]:
     members = sorted(household.members, key=lambda item: item.priority)
     guardians = [member for member in members if member.role == MemberRole.GUARDIAN]
     directly_affected = [
@@ -134,11 +175,12 @@ def _route_targets(household: HouseholdState, level: AlertLevel) -> list[Househo
         if member.status in {MemberStatus.HOME, MemberStatus.COMMUTING, MemberStatus.NEEDS_HELP}
         or member.role == MemberRole.CHILD
     ]
+    proximity_members = [member for member in members if member.id in proximity_ids]
 
     if level == AlertLevel.LIFE_THREATENING:
         return members
     if level == AlertLevel.MAJOR:
-        return _dedupe_members([*guardians, *directly_affected])
+        return _dedupe_members([*guardians, *directly_affected, *proximity_members])
     if level == AlertLevel.MODERATE:
         return guardians
     return guardians[:1]

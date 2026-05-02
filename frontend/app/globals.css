@@ -6,28 +6,28 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  --background: #ece8de;
-  --paper: #fbfaf5;
-  --paper-2: #f3f0e8;
-  --paper-3: #fffdf7;
-  --ink: #222824;
-  --muted: #667166;
-  --line: #d8d1c3;
-  --olive: #52624d;
-  --rust: #b85c38;
-  --red: #a83a40;
-  --gold: #bd8b2f;
-  --blue: #4a6677;
-  --sage: var(--olive);
-  --tide: var(--blue);
-  --clay: var(--rust);
+  color-scheme: dark;
+  --background: #080B10;
+  --paper: #101720;
+  --paper-2: #151E2A;
+  --paper-3: #192331;
+  --ink: #F3F7FB;
+  --muted: #94A3B8;
+  --line: #243244;
+  --olive: #4FD1C5;
+  --rust: #F87171;
+  --red: #F87171;
+  --gold: #FBBF24;
+  --blue: #60A5FA;
+  --sage: #4FD1C5;
+  --tide: #60A5FA;
+  --clay: #F87171;
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #b8ad99 transparent;
+  scrollbar-color: #243244 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -40,7 +40,7 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #b8ad99;
+  background: #243244;
 }
 
 html,
@@ -98,9 +98,9 @@ button:disabled {
   position: sticky;
   top: 14px;
   z-index: 10;
-  border: 1px solid #df9b89;
-  background: #fff0ed;
-  color: #7c2d22;
+  border: 1px solid #7f1d1d;
+  background: #1c0a0a;
+  color: #F87171;
   padding: 12px 14px;
   margin-bottom: 14px;
   font-weight: 800;
@@ -228,7 +228,7 @@ button:disabled {
 .mini-button,
 .ops-dispatch button {
   min-height: 40px;
-  border: 1px solid #2d332f;
+  border: 1px solid #243244;
   border-radius: 0;
   font-weight: 800;
 }
@@ -254,8 +254,8 @@ button:disabled {
 }
 
 .ops-button {
-  background: #2d332f;
-  color: var(--paper);
+  background: #4FD1C5;
+  color: #080B10;
   padding: 0 14px;
 }
 
@@ -380,14 +380,14 @@ button:disabled {
 }
 
 .mini-button {
-  background: #2d332f;
-  color: var(--paper);
+  background: #4FD1C5;
+  color: #080B10;
 }
 
 .ack-label {
   border: 1px solid var(--line);
-  background: #e5edde;
-  color: #33482e;
+  background: rgba(79, 209, 197, 0.12);
+  color: #4FD1C5;
 }
 
 .ops-map {
@@ -411,19 +411,19 @@ button:disabled {
 }
 
 .gps-map-canvas.leaflet-container {
-  background: #e7e0d0;
+  background: #0D1117;
   font-family: "Aptos", "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
 .gps-map-canvas .leaflet-tile {
-  filter: saturate(0.55) contrast(0.95) brightness(1.04);
+  filter: invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8);
 }
 
 .gps-map-canvas .leaflet-control-attribution {
   margin: 0 10px 8px 0;
   border: 1px solid var(--line);
   border-radius: 0;
-  background: rgba(251, 250, 245, 0.88);
+  background: rgba(16, 23, 32, 0.88);
   color: var(--muted);
   font-size: 0.62rem;
   font-weight: 700;
@@ -437,7 +437,7 @@ button:disabled {
 
 .gps-map-canvas .leaflet-control-zoom a {
   border: 0;
-  background: rgba(251, 250, 245, 0.94);
+  background: rgba(16, 23, 32, 0.94);
   color: var(--ink);
   font-weight: 900;
 }
@@ -466,7 +466,7 @@ button:disabled {
   position: absolute;
   z-index: 1;
   border: 1px solid var(--line);
-  background: rgba(251, 250, 245, 0.9);
+  background: rgba(16, 23, 32, 0.9);
 }
 
 .gps-map-overlay {
@@ -505,7 +505,7 @@ button:disabled {
 }
 
 .gps-map-legend {
-  right: 16px;
+  left: 16px;
   bottom: 16px;
   display: flex;
   flex-wrap: wrap;
@@ -732,7 +732,7 @@ button:disabled {
 
 .chat-bubble.inbound {
   justify-self: end;
-  background: #e5edde;
+  background: rgba(79, 209, 197, 0.12);
 }
 
 .chat-input {
@@ -806,7 +806,7 @@ button:disabled {
   }
 
   .gps-map-legend {
-    right: 10px;
+    left: 10px;
     bottom: 10px;
     max-width: calc(100% - 20px);
   }

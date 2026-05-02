@@ -46,8 +46,11 @@ export function GpsMap({ members }: GpsMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<LayerGroup | null>(null);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const initialFitDone = useRef(false);
   const locatedCount = members.filter((member) => member.location !== null).length;
 
+  // Mount map once
   useEffect(() => {
     let cancelled = false;
 
@@ -56,6 +59,7 @@ export function GpsMap({ members }: GpsMapProps) {
       if (cancelled || !mapContainerRef.current) {
         return;
       }
+      leafletRef.current = L;
 
       const map = L.map(mapContainerRef.current, {
         attributionControl: true,
@@ -70,52 +74,7 @@ export function GpsMap({ members }: GpsMapProps) {
         maxZoom: 19
       }).addTo(map);
 
-      L.circle(CAL_POLY_CENTER, {
-        radius: 320,
-        color: "#497b8f",
-        fillColor: "#7db8c5",
-        fillOpacity: 0.08,
-        opacity: 0.45,
-        weight: 2
-      }).addTo(map);
-
-      L.marker(CAL_POLY_CENTER, {
-        icon: L.divIcon({
-          className: "campus-map-marker",
-          html: '<span class="campus-map-dot"></span>',
-          iconAnchor: [10, 10],
-          iconSize: [20, 20]
-        })
-      })
-        .bindTooltip("Cal Poly campus center", { direction: "top", offset: [0, -8] })
-        .addTo(map);
-
-      const markerLayer = L.layerGroup().addTo(map);
-      const bounds = L.latLngBounds([CAL_POLY_CENTER]);
-      members.forEach((member) => {
-        if (!member.location) {
-          return;
-        }
-
-        const latLng: [number, number] = [member.location.latitude, member.location.longitude];
-        bounds.extend(latLng);
-        L.marker(latLng, {
-          icon: L.divIcon({
-            className: "member-map-marker",
-            html: `<span class="member-map-dot ${member.role === "child" ? "child" : "guardian"}"></span>`,
-            iconAnchor: [10, 10],
-            iconSize: [20, 20]
-          })
-        })
-          .bindPopup(buildMemberPopup(member))
-          .addTo(markerLayer);
-      });
-      markerLayerRef.current = markerLayer;
-
-      if (locatedCount > 0) {
-        map.fitBounds(bounds.pad(0.22), { maxZoom: 15 });
-      }
-
+      markerLayerRef.current = L.layerGroup().addTo(map);
       window.setTimeout(() => map.invalidateSize(), 0);
     }
 
@@ -127,8 +86,42 @@ export function GpsMap({ members }: GpsMapProps) {
       markerLayerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
+      leafletRef.current = null;
+      initialFitDone.current = false;
     };
-  }, [locatedCount, members]);
+  }, []);
+
+  // Update markers when members change (without remounting the map)
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    const markerLayer = markerLayerRef.current;
+    if (!L || !map || !markerLayer) return;
+
+    markerLayer.clearLayers();
+    const bounds = L.latLngBounds([CAL_POLY_CENTER]);
+
+    members.forEach((member) => {
+      if (!member.location) return;
+      const latLng: [number, number] = [member.location.latitude, member.location.longitude];
+      bounds.extend(latLng);
+      L.marker(latLng, {
+        icon: L.divIcon({
+          className: "member-map-marker",
+          html: `<span class="member-map-dot ${member.role === "child" ? "child" : "guardian"}"></span>`,
+          iconAnchor: [10, 10],
+          iconSize: [20, 20]
+        })
+      })
+        .bindPopup(buildMemberPopup(member))
+        .addTo(markerLayer);
+    });
+
+    if (locatedCount > 0 && !initialFitDone.current) {
+      map.fitBounds(bounds.pad(0.22), { maxZoom: 15 });
+      initialFitDone.current = true;
+    }
+  }, [members, locatedCount]);
 
   return (
     <div className="gps-map">
@@ -141,7 +134,6 @@ export function GpsMap({ members }: GpsMapProps) {
       <div className="gps-map-legend" aria-label="Map legend">
         <span><i className="legend-dot child" /> Child</span>
         <span><i className="legend-dot guardian" /> Guardian</span>
-        <span><i className="legend-dot campus" /> Campus</span>
       </div>
     </div>
   );

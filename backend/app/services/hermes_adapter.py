@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 from typing import Any
 
@@ -23,7 +25,8 @@ class HermesAdapter:
         self.settings = settings
 
     async def refine_action_plan_messages(
-        self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan
+        self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan,
+        proximity_members: list[dict[str, str]] | None = None,
     ) -> tuple[ActionPlan, str | None]:
         if not self.settings.use_hermes:
             return plan, "Hermes disabled; using deterministic local message drafts."
@@ -31,7 +34,7 @@ class HermesAdapter:
             return plan, "Hermes enabled but HERMES_API_KEY is not set; using local message drafts."
 
         try:
-            content = await self._call_hermes(event, household, plan)
+            content = await self._call_hermes(event, household, plan, proximity_members)
             updates = self._parse_message_updates(content)
         except Exception as exc:
             return plan, f"Hermes unavailable; using local message drafts. Detail: {exc}"
@@ -63,6 +66,7 @@ class HermesAdapter:
         event: ThreatEvent,
         household: HouseholdState,
         camera_signal: CameraSignal | None,
+        proximity_members: list[dict[str, str]] | None = None,
     ) -> tuple[AlertClassification | None, str]:
         if not self.settings.use_hermes:
             return None, "Hermes disabled; classification will use local fallback."
@@ -72,7 +76,7 @@ class HermesAdapter:
         last_error = "unknown error"
         for attempt in range(2):
             try:
-                content = await self._call_hermes_classifier(event, household, camera_signal, attempt)
+                content = await self._call_hermes_classifier(event, household, camera_signal, attempt, proximity_members)
                 classification = self._parse_classification(content)
                 return classification, f"Hermes classification accepted on attempt {attempt + 1}."
             except Exception as exc:
@@ -109,7 +113,95 @@ class HermesAdapter:
         except Exception as exc:
             return message.model_copy(update={"status": OutboundStatus.FAILED}), f"Hermes dispatch failed: {exc}"
 
-    async def _call_hermes(self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan) -> str:
+    async def send_family_alert_triage(
+        self,
+        event: ThreatEvent,
+        household: HouseholdState,
+        proximity_ids: list[str],
+    ) -> tuple[bool, str]:
+        """Send signed webhook to Hermes family-alert-triage endpoint."""
+        if not self.settings.hermes_webhook_url or not self.settings.hermes_webhook_secret:
+            return False, "Hermes webhook not configured (missing URL or secret)."
+
+        from datetime import datetime, timezone as tz
+
+        candidates = []
+        for member in household.members:
+            if member.id not in proximity_ids:
+                continue
+            last_seen_minutes = None
+            if member.location and member.location.observed_at:
+                delta = datetime.now(tz.utc) - member.location.observed_at
+                last_seen_minutes = int(delta.total_seconds() / 60)
+            mobile = (member.mobile_status or "").strip().lower()
+            if mobile == "safe":
+                safety_status = "safe"
+            elif mobile == "needs help":
+                safety_status = "needs_help"
+            else:
+                safety_status = "unknown"
+            candidates.append({
+                "person_id": member.id,
+                "display_name": member.name,
+                "telegram_chat_id": member.telegram_chat_id or "",
+                "email": member.phone_e164 or "",
+                "location_status": "inside_alert_area",
+                "last_seen_minutes": last_seen_minutes or 0,
+                "safety_status": safety_status,
+            })
+
+        if not candidates:
+            return False, "No family members in alert zone."
+
+        all_channels: set[str] = set()
+        for member in household.members:
+            if member.id in proximity_ids:
+                for ch in member.channels:
+                    all_channels.add(ch.value)
+
+        payload = {
+            "event_type": event.event_type,
+            "alert": {
+                "id": event.id,
+                "source": event.source_kind.value.upper(),
+                "event": event.event_type,
+                "severity": event.severity.value.capitalize(),
+                "urgency": "Immediate" if event.severity.value in ("extreme", "high") else "Expected",
+                "certainty": "Likely",
+                "headline": event.title,
+                "summary": event.description[:300],
+                "area_label": event.location_label,
+                "expires_at": event.expires_at.isoformat() if event.expires_at else None,
+                "url": str(event.source_url) if event.source_url else "",
+            },
+            "family_candidates": candidates,
+            "policy": {
+                "allowed_channels": sorted(all_channels),
+                "max_recipients": 5,
+                "require_notify_severities": ["Extreme", "Severe"],
+            },
+        }
+
+        body = json.dumps(payload)
+        signature = hmac.new(self.settings.hermes_webhook_secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+
+        try:
+            async with httpx.AsyncClient(timeout=self.settings.hermes_timeout_seconds) as client:
+                response = await client.post(
+                    self.settings.hermes_webhook_url,
+                    content=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Webhook-Signature": signature,
+                        "X-Request-ID": event.id,
+                    },
+                )
+                response.raise_for_status()
+            return True, f"Webhook sent successfully (status {response.status_code})."
+        except Exception as exc:
+            return False, f"Webhook failed: {exc}"
+
+    async def _call_hermes(self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan, proximity_members: list[dict[str, str]] | None = None) -> str:
         prompt = {
             "task": "Refine GuardClaw outbound message drafts. Keep them calm, concise, and explicit that this is demo mode.",
             "constraints": [
@@ -120,6 +212,7 @@ class HermesAdapter:
             ],
             "event": event.model_dump(mode="json"),
             "household": household.model_dump(mode="json"),
+            "members_in_alert_zone": proximity_members or [],
             "messages": [message.model_dump(mode="json") for message in plan.outbound_messages],
             "response_shape": {"messages": [{"id": "message id", "subject": "string", "body": "string"}]},
         }
@@ -135,6 +228,7 @@ class HermesAdapter:
         household: HouseholdState,
         camera_signal: CameraSignal | None,
         attempt: int,
+        proximity_members: list[dict[str, str]] | None = None,
     ) -> str:
         prompt = {
             "task": "Classify the urgency of this GuardClaw household alert.",
@@ -156,6 +250,7 @@ class HermesAdapter:
             "event": event.model_dump(mode="json"),
             "camera_signal": camera_signal.model_dump(mode="json") if camera_signal else None,
             "household": household.model_dump(mode="json"),
+            "members_in_alert_zone": proximity_members or [],
             "response_shape": {
                 "level": "minor|moderate|major|life_threatening",
                 "confidence": 0.0,

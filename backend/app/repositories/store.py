@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from app.models.schemas import (
     ActiveIncidentResponse,
     ActionPlan,
+    AlertAuditEntry,
     HouseholdState,
+    SourceKind,
     ThreatEvent,
     TimelineEntry,
     new_id,
@@ -45,6 +47,18 @@ class SQLiteStore:
                     incident_id TEXT,
                     value TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS alert_audit_log (
+                    id TEXT PRIMARY KEY,
+                    source_kind TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(source_kind, source_id)
                 )
                 """
             )
@@ -175,3 +189,31 @@ class SQLiteStore:
             conn.commit()
 
         return ack_entry
+
+    def has_audit_entry(self, source_kind: SourceKind, source_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM alert_audit_log WHERE source_kind = ? AND source_id = ?",
+                (source_kind.value, source_id),
+            ).fetchone()
+        return row is not None
+
+    def add_audit_entry(self, entry: AlertAuditEntry) -> AlertAuditEntry:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO alert_audit_log (id, source_kind, source_id, value, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(source_kind, source_id) DO NOTHING
+                """,
+                (entry.id, entry.source_kind.value, entry.source_id, self._encode_model(entry), entry.ingested_at.isoformat()),
+            )
+            conn.commit()
+        return entry
+
+    def list_audit_log(self) -> list[AlertAuditEntry]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT value FROM alert_audit_log ORDER BY created_at DESC"
+            ).fetchall()
+        return [AlertAuditEntry.model_validate(json.loads(row["value"])) for row in rows]
