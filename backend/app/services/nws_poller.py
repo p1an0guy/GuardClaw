@@ -86,6 +86,7 @@ class NWSPoller:
 
     async def run(self, store: SQLiteStore, settings: Settings) -> None:
         self._audit = SupabaseAuditService(settings)
+        await self._audit.bootstrap()
         while True:
             try:
                 await self._poll(store, settings)
@@ -112,8 +113,9 @@ class NWSPoller:
             props = feature.get("properties") or {}
             nws_id = str(props.get("id") or "")
             seen = self._audit.has_entry(SourceKind.NWS, nws_id)
-            logger.info("NWSPoller: checking nws_id=%s seen=%s", nws_id[:40], seen)
             if not nws_id or seen:
+                if seen:
+                    logger.debug("NWSPoller: skipping already-seen nws_id=%s", nws_id[:60])
                 continue
             event = _props_to_threat_event(props, feature.get("geometry"))
             entry = AlertAuditEntry(
