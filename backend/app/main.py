@@ -25,6 +25,7 @@ from app.models.schemas import (
 )
 from app.services.alert_sources import AlertSourceService
 from app.services.camera_service import CameraService
+from app.services.cctv_monitor import CCTVMonitor
 from app.services.demo_seed import ensure_demo_seed
 from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
@@ -37,7 +38,12 @@ async def lifespan(_: FastAPI):
     store.initialize()
     ensure_demo_seed(store)
     poller_task = asyncio.create_task(NWSPoller().run(store, settings))
+    cctv_monitor = CCTVMonitor(settings) if settings.cctv_enabled else None
+    if cctv_monitor:
+        await cctv_monitor.start()
     yield
+    if cctv_monitor:
+        await cctv_monitor.stop()
     poller_task.cancel()
 
 
