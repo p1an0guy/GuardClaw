@@ -89,6 +89,12 @@ cp .env.example .env
 npx expo start
 ```
 
+> **Cal Poly wifi note:** The campus network blocks the LAN port Expo uses for device connections. Use the `--tunnel` flag instead:
+> ```bash
+> npx expo start --tunnel
+> ```
+> First-time only: `npx expo install @expo/ngrok`
+
 The app runs with polished demo data if Supabase env vars are empty or missing.
 
 ### Supabase Setup (optional)
