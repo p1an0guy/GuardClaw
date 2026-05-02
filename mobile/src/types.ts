@@ -47,6 +47,7 @@ export type LocationLabel = 'home' | 'school' | 'work';
 export type SavedLocation = {
   id: string;
   family_id: string;
+  member_id: string;
   label: LocationLabel;
   lat: number;
   lng: number;

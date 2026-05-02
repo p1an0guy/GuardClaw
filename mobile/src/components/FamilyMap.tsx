@@ -39,7 +39,7 @@ type Props = {
   isGuardian?: boolean;
   locationState: 'requesting' | 'live' | 'denied' | 'unavailable';
   members: FamilyMember[];
-  onMarkLocation?: (label: LocationLabel) => void;
+  onMarkLocation?: (memberId: string, label: LocationLabel) => void;
   savedLocations?: SavedLocation[];
 };
 
@@ -226,9 +226,17 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
         <Pressable
           accessibilityRole="button"
           onPress={() => {
+            const memberNames = members.map((m) => m.name);
             ActionSheetIOS.showActionSheetWithOptions(
-              { options: ['Cancel', 'Home', 'School', 'Work'], cancelButtonIndex: 0 },
-              (idx) => { if (idx > 0) onMarkLocation((['home', 'school', 'work'] as LocationLabel[])[idx - 1]); },
+              { options: ['Cancel', ...memberNames], cancelButtonIndex: 0, title: 'Mark location for' },
+              (memberIdx) => {
+                if (memberIdx === 0) return;
+                const selectedMember = members[memberIdx - 1];
+                ActionSheetIOS.showActionSheetWithOptions(
+                  { options: ['Cancel', 'Home', 'School', 'Work'], cancelButtonIndex: 0, title: `Label for ${selectedMember.name}` },
+                  (labelIdx) => { if (labelIdx > 0) onMarkLocation(selectedMember.id, (['home', 'school', 'work'] as LocationLabel[])[labelIdx - 1]); },
+                );
+              },
             );
           }}
           style={({ pressed }) => [styles.markButton, pressed && styles.recenterButtonPressed]}

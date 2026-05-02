@@ -60,6 +60,7 @@ export type SupabaseNotificationRow = {
 export type SupabaseSavedLocationRow = {
   id: string;
   family_id: string;
+  member_id: string;
   label: string;
   lat: number;
   lng: number;

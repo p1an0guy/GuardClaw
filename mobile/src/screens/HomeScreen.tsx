@@ -669,16 +669,20 @@ export default function HomeScreen() {
     [currentLocation, getFreshLocation, persistCurrentMember, sendMessage],
   );
 
-  const handleMarkLocation = useCallback(async (label: LocationLabel) => {
+  const handleMarkLocation = useCallback(async (memberId: string, label: LocationLabel) => {
     const loc = currentLocationRef.current ?? currentLocation;
     if (!loc || !supabase || !isSupabaseConfigured || !SUPABASE_FAMILY_ID) return;
     await supabase.from('saved_locations').insert({
       family_id: SUPABASE_FAMILY_ID,
+      member_id: memberId,
       label,
       lat: loc.latitude,
       lng: loc.longitude,
     });
-    setSavedLocations((prev) => [...prev.filter((s) => s.label !== label), { id: '', family_id: SUPABASE_FAMILY_ID, label, lat: loc.latitude, lng: loc.longitude, created_at: new Date().toISOString() }]);
+    setSavedLocations((prev) => [
+      ...prev.filter((s) => !(s.member_id === memberId && s.label === label)),
+      { id: '', family_id: SUPABASE_FAMILY_ID, member_id: memberId, label, lat: loc.latitude, lng: loc.longitude, created_at: new Date().toISOString() },
+    ]);
   }, [currentLocation]);
 
   const PROXIMITY_METERS = 100;
@@ -687,6 +691,7 @@ export default function HomeScreen() {
     for (const m of members) {
       if (m.lat == null || m.lng == null) continue;
       for (const loc of savedLocations) {
+        if (loc.member_id !== m.id) continue;
         const dLat = (m.lat - loc.lat) * 111320;
         const dLng = (m.lng - loc.lng) * 111320 * Math.cos((loc.lat * Math.PI) / 180);
         if (Math.sqrt(dLat * dLat + dLng * dLng) <= PROXIMITY_METERS) {
