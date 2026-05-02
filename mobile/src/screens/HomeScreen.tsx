@@ -126,7 +126,7 @@ export default function HomeScreen() {
   const [members, setMembers] = useState<FamilyMember[]>(() => isSupabaseConfigured ? [] : sortMembers(mockMembers));
   const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [banner, setBanner] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ title: string; lat: number | null; lng: number | null } | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -550,7 +550,7 @@ export default function HomeScreen() {
         (payload) => {
           const row = payload.new as SupabaseNotificationRow;
           setNotifications((prev) => [row as AppNotification, ...prev]);
-          setBanner(row.title);
+          setBanner({ title: row.title, lat: row.lat ?? null, lng: row.lng ?? null });
           setTimeout(() => setBanner(null), 4000);
         },
       )
@@ -631,11 +631,22 @@ export default function HomeScreen() {
         });
 
         if (action === 'help' && supabase && isSupabaseConfigured && SUPABASE_FAMILY_ID) {
+          let locationLabel = '';
+          if (actionLocation) {
+            try {
+              const [geo] = await Location.reverseGeocodeAsync(actionLocation);
+              if (geo) {
+                locationLabel = [geo.name, geo.street, geo.city].filter(Boolean).join(', ');
+              }
+            } catch {}
+          }
           await supabase.from('notifications').insert({
             family_id: SUPABASE_FAMILY_ID,
             target_role: 'guardian',
             title: `${SUPABASE_MEMBER_NAME} needs help`,
-            body: `${SUPABASE_MEMBER_NAME} has triggered a help alert.`,
+            body: locationLabel
+              ? `${SUPABASE_MEMBER_NAME} needs help near ${locationLabel}.`
+              : `${SUPABASE_MEMBER_NAME} has triggered a help alert.`,
             lat: actionLocation?.latitude ?? null,
             lng: actionLocation?.longitude ?? null,
           });
@@ -652,6 +663,7 @@ export default function HomeScreen() {
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
   const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'alerts'>('home');
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
+  const [focusedCoordinate, setFocusedCoordinate] = useState<Coordinate | null>(null);
 
   const currentMemberRole = members.find((m) => m.id === SUPABASE_MEMBER_ID)?.role ?? 'guardian';
   const filteredNotifications = currentMemberRole === 'guardian'
@@ -688,10 +700,19 @@ export default function HomeScreen() {
         ) : null}
 
         {banner ? (
-          <View style={styles.banner}>
+          <Pressable
+            onPress={() => {
+              if (banner.lat != null && banner.lng != null) {
+                setActiveTab('home');
+                setFocusedCoordinate({ latitude: banner.lat, longitude: banner.lng });
+              }
+              setBanner(null);
+            }}
+            style={styles.banner}
+          >
             <Ionicons color={colors.danger} name="alert-circle" size={18} />
-            <Text numberOfLines={1} style={styles.bannerText}>{banner}</Text>
-          </View>
+            <Text numberOfLines={1} style={styles.bannerText}>{banner.title}</Text>
+          </Pressable>
         ) : null}
 
         <View style={styles.content}>
@@ -699,6 +720,7 @@ export default function HomeScreen() {
             <>
               <FamilyMap
                 currentLocation={currentLocation}
+                focusedCoordinate={focusedCoordinate}
                 focusedMemberId={focusedMemberId}
                 locationState={locationState}
                 members={members}
