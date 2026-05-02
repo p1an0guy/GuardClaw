@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
@@ -236,6 +237,9 @@ export default function DashboardPage() {
               <button className="ops-button" disabled={simulating} onClick={handleSimulate}>
                 {simulating ? "Classifying..." : "Run alert"}
               </button>
+              <Link className="ops-button" href="/cameras" style={{ textDecoration: "none" }}>
+                Manage Cameras
+              </Link>
             </div>
           </div>
         </section>

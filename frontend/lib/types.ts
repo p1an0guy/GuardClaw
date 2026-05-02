@@ -186,3 +186,25 @@ export interface AlertAuditEntry {
   ingested_at: string;
   pipeline_triggered: boolean;
 }
+
+export interface Camera {
+  id: string;
+  family_id: string;
+  label: string;
+  location_label: string;
+  stream_url: string | null;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CameraAlertSchedule {
+  id: string;
+  camera_id: string;
+  family_id: string;
+  day_of_week: number; // 0=Monday, 6=Sunday
+  start_time: string;
+  end_time: string;
+  enabled: boolean;
+  created_at: string;
+}

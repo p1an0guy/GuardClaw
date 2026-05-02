@@ -2,6 +2,8 @@ import type {
   AcknowledgeResponse,
   ActiveIncidentResponse,
   AlertAuditEntry,
+  Camera,
+  CameraAlertSchedule,
   HouseholdState,
   SourceKind,
   TimelineEntry
@@ -58,4 +60,32 @@ export function acknowledgeAction(targetId: string): Promise<AcknowledgeResponse
 
 export function getAuditLog(): Promise<AlertAuditEntry[]> {
   return requestJson<AlertAuditEntry[]>("/api/alerts/audit-log");
+}
+
+export function getCameras(): Promise<Camera[]> {
+  return requestJson<Camera[]>("/api/cameras");
+}
+
+export function createCamera(data: { label: string; location_label: string; stream_url?: string }): Promise<Camera> {
+  return requestJson<Camera>("/api/cameras", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateCamera(id: string, data: Partial<{ label: string; location_label: string; stream_url: string; enabled: boolean }>): Promise<Camera> {
+  return requestJson<Camera>(`/api/cameras/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteCamera(id: string): Promise<void> {
+  return requestJson<void>(`/api/cameras/${id}`, { method: "DELETE" });
+}
+
+export function getCameraSchedules(cameraId: string): Promise<CameraAlertSchedule[]> {
+  return requestJson<CameraAlertSchedule[]>(`/api/cameras/${cameraId}/schedules`);
+}
+
+export function createCameraSchedule(cameraId: string, data: { day_of_week: number; start_time: string; end_time: string }): Promise<CameraAlertSchedule> {
+  return requestJson<CameraAlertSchedule>(`/api/cameras/${cameraId}/schedules`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function deleteCameraSchedule(cameraId: string, scheduleId: string): Promise<void> {
+  return requestJson<void>(`/api/cameras/${cameraId}/schedules/${scheduleId}`, { method: "DELETE" });
 }
