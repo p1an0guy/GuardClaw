@@ -1,0 +1,14 @@
+[
+  {
+    "id": "__any__",
+    "incident_id": null,
+    "kind": "__any__",
+    "title": "__any__",
+    "detail": "__any__",
+    "actor": "__any__",
+    "created_at": "__any__",
+    "acknowledged_at": null,
+    "metadata": {},
+    "demo_mode": true
+  }
+]

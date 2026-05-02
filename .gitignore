@@ -1,0 +1,44 @@
+.DS_Store
+node_modules/
+dist/
+build/
+*.log
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+
+# Frontend (Next.js)
+.next/
+.npm-cache/
+
+# Backend (Python)
+.venv/
+venv/
+__pycache__/
+*.pyc
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+
+# Mobile (Expo / React Native)
+.expo/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+*.pem
+mobile/ios/
+mobile/android/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Images (large binary assets tracked separately if needed)
+*.png

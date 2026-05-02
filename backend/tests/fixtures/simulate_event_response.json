@@ -1,0 +1,49 @@
+{
+  "incident": {
+    "id": "__any__",
+    "event_type": "__any__",
+    "title": "__any__",
+    "description": "__any__",
+    "severity": "__any__",
+    "location_label": "__any__",
+    "issued_at": "__any__",
+    "expires_at": null,
+    "source_kind": "__any__",
+    "source_name": "__any__",
+    "source_url": null,
+    "is_live": false,
+    "is_simulated": true,
+    "demo_mode": true,
+    "raw": {}
+  },
+  "action_plan": {
+    "id": "__any__",
+    "incident_id": "__any__",
+    "classification": {
+      "level": "__any__",
+      "confidence": 0.0,
+      "rationale": "__any__",
+      "classified_by": "__any__",
+      "source_notes": []
+    },
+    "camera_signal": null,
+    "affected_people": [],
+    "notify_order": [],
+    "notification_intents": [],
+    "recommended_actions": [],
+    "rationale": "__any__",
+    "outbound_messages": [],
+    "created_at": "__any__",
+    "demo_mode": true,
+    "generated_by": "__any__"
+  },
+  "camera_signal": null,
+  "classification": {
+    "level": "__any__",
+    "confidence": 0.0,
+    "rationale": "__any__",
+    "classified_by": "__any__",
+    "source_notes": []
+  },
+  "demo_mode": true
+}
