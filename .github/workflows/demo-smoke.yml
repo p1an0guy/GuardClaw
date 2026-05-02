@@ -1,0 +1,57 @@
+name: Demo Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_FAMILY_ID: ${{ secrets.SUPABASE_FAMILY_ID }}
+      HERMES_API_BASE_URL: ${{ secrets.HERMES_API_BASE_URL }}
+      HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
+      GUARDCLAW_USE_HERMES: 'true'
+      GUARDCLAW_SQLITE_PATH: /tmp/guardclaw-smoke.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Run demo smoke test
+        run: |
+          cd backend
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+          from app.main import app
+
+          with TestClient(app) as client:
+              response = client.post(
+                  "/api/simulate/event",
+                  json={"source": "nws", "live": False, "include_camera": True},
+              )
+              assert response.status_code == 200, response.text
+              data = response.json()
+
+              # Verify timeline contains alert_classified
+              timeline_resp = client.get("/api/actions/timeline")
+              assert timeline_resp.status_code == 200
+              timeline = timeline_resp.json()
+              kinds = [entry["kind"] for entry in timeline]
+              assert "alert_classified" in kinds, f"Expected alert_classified in timeline, got: {kinds}"
+
+              # Verify at least one outbound message has a clear status
+              messages = data["action_plan"]["outbound_messages"]
+              assert len(messages) >= 1, "No outbound messages generated"
+              valid_statuses = {"sent_via_hermes", "sent_stub", "failed"}
+              statuses = [m["status"] for m in messages]
+              assert any(s in valid_statuses for s in statuses), (
+                  f"No message has a terminal status. Got: {statuses}"
+              )
+          PY
