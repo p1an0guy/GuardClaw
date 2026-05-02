@@ -104,6 +104,12 @@ export type Database = {
         Update: Partial<SupabaseContactRow>;
         Relationships: [];
       };
+      notifications: {
+        Row: SupabaseNotificationRow;
+        Insert: Omit<SupabaseNotificationRow, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<SupabaseNotificationRow, 'id'>>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

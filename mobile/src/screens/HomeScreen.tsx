@@ -627,6 +627,17 @@ export default function HomeScreen() {
           lng: actionLocation?.longitude,
         });
         await sendMessage(config.text);
+
+        if (action === 'help' && supabase && isSupabaseConfigured && SUPABASE_FAMILY_ID) {
+          await supabase.from('notifications').insert({
+            family_id: SUPABASE_FAMILY_ID,
+            target_role: 'guardian',
+            title: `${SUPABASE_MEMBER_NAME} needs help`,
+            body: `${SUPABASE_MEMBER_NAME} has triggered a help alert.`,
+            lat: actionLocation?.latitude ?? null,
+            lng: actionLocation?.longitude ?? null,
+          });
+        }
       } catch (error) {
         setNotice(error instanceof Error ? error.message : 'Quick action failed.');
       }
