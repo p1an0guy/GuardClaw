@@ -127,25 +127,57 @@ class CCTVAlertPipeline:
         confidence: float,
         clip_url: str | None,
     ) -> None:
-        """Send signed webhook to Hermes — deterministic, no LLM."""
+        """Send signed webhook to Hermes via family-alert-triage with CCTV payload."""
         if not self.settings.hermes_webhook_url or not self.settings.hermes_webhook_secret:
             logger.info("Hermes webhook not configured; skipping CCTV alert webhook")
             return
 
-        webhook_url = self.settings.hermes_webhook_url.replace(
-            "/webhooks/family-alert-triage", "/webhooks/cctv-person-detected"
-        )
+        detected_at = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+        summary = f"Person detected at {camera_label} ({location_label}) with {confidence:.0%} confidence."
+        if clip_url:
+            summary += f" Clip: {clip_url}"
 
         payload = {
             "event_type": "cctv_person_detected",
-            "camera": {"id": camera_id, "label": camera_label, "location": location_label},
-            "detection": {
-                "detected_at": datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(),
-                "confidence": round(confidence, 3),
-                "clip_url": clip_url,
+            "alert": {
+                "id": f"cctv_{camera_id}_{int(timestamp)}",
+                "source": "CCTV",
+                "event": "cctv_person_detected",
+                "severity": "High",
+                "urgency": "Immediate",
+                "certainty": "Observed",
+                "headline": f"Motion Alert: {camera_label}",
+                "summary": summary,
+                "area_label": location_label,
+                "expires_at": None,
+                "url": clip_url or "",
             },
-            "family_id": self.settings.supabase_family_id,
+            "family_candidates": [],
+            "policy": {
+                "allowed_channels": ["telegram", "call"],
+                "max_recipients": 5,
+                "require_notify_severities": ["High", "Extreme"],
+            },
         }
+
+        # Fetch household members to populate family_candidates
+        try:
+            from app.services.supabase_household import SupabaseHouseholdService
+            household = await SupabaseHouseholdService(self.settings).get_household()
+            if household:
+                for member in household.members:
+                    if member.role.value == "guardian":
+                        payload["family_candidates"].append({
+                            "person_id": member.id,
+                            "display_name": member.name,
+                            "telegram_chat_id": member.telegram_chat_id or "",
+                            "email": member.phone_e164 or "",
+                            "location_status": "inside_alert_area",
+                            "last_seen_minutes": 0,
+                            "safety_status": "unknown",
+                        })
+        except Exception:
+            pass  # Best-effort; send without candidates if household fetch fails
 
         body = json.dumps(payload)
         signature = hmac.new(
@@ -155,7 +187,7 @@ class CCTVAlertPipeline:
         try:
             async with httpx.AsyncClient(timeout=self.settings.hermes_timeout_seconds) as client:
                 r = await client.post(
-                    webhook_url,
+                    self.settings.hermes_webhook_url,
                     content=body,
                     headers={
                         "Content-Type": "application/json",

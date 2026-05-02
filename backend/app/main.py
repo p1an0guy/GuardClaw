@@ -167,3 +167,43 @@ async def create_schedule(camera_id: str, request: CreateScheduleRequest) -> Cam
 @app.delete("/api/cameras/{camera_id}/schedules/{schedule_id}", status_code=204)
 async def delete_schedule(camera_id: str, schedule_id: str) -> None:
     await CameraService(settings).delete_schedule(schedule_id)
+
+
+@app.post("/api/cameras/{camera_id}/simulate-detection")
+async def simulate_detection(camera_id: str) -> dict[str, object]:
+    """Simulate a person detection event on a camera (bypasses schedule check)."""
+    import time
+    from app.services.cctv_alert_pipeline import CCTVAlertPipeline
+
+    cam = await CameraService(settings).get_camera(camera_id)
+    if cam is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Camera not found")
+
+    pipeline = CCTVAlertPipeline(settings)
+    timestamp = time.time()
+    confidence = 0.92
+
+    # Send webhook + notification (skip clip extraction since no buffer in simulation)
+    await pipeline._send_webhook(
+        camera_id=camera_id,
+        camera_label=cam["label"],
+        location_label=cam["location_label"],
+        timestamp=timestamp,
+        confidence=confidence,
+        clip_url=None,
+    )
+    await pipeline._write_notification(
+        camera_label=cam["label"],
+        location_label=cam["location_label"],
+        confidence=confidence,
+        clip_url=None,
+    )
+
+    return {
+        "status": "alert_sent",
+        "camera_id": camera_id,
+        "camera_label": cam["label"],
+        "confidence": confidence,
+        "message": f"Simulated person detection on {cam['label']} — webhook + notification dispatched.",
+    }
