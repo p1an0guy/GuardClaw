@@ -61,6 +61,10 @@ export default function StatusDashboard({ currentLocation, loading, members }: P
                     <Text numberOfLines={1} style={styles.name}>
                       {member.name}
                     </Text>
+                    <View style={styles.roleBadge}>
+                      <Ionicons color={member.role === 'guardian' ? colors.accent : colors.textMuted} name={member.role === 'guardian' ? 'shield-checkmark' : 'person'} size={11} />
+                      <Text style={[styles.roleText, member.role === 'guardian' && { color: colors.accent }]}>{member.role === 'guardian' ? 'Guardian' : 'Child'}</Text>
+                    </View>
                     <View
                       style={[
                         styles.statusBadge,
@@ -176,6 +180,16 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 5,
+  },
+  roleBadge: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 3,
+  },
+  roleText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
   },
   statusDot: {
     borderRadius: 99,

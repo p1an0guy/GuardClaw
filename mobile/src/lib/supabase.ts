@@ -6,6 +6,7 @@ export type SupabaseMemberRow = {
   id: string;
   family_id: string;
   name: string;
+  role: string;
   status: string;
   battery: number;
   lat: number | null;
