@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, statusTheme } from '../theme';
 import type { Coordinate, FamilyMember } from '../types';
@@ -22,39 +23,41 @@ const initialsFor = (name: string) =>
     .join('');
 
 export default function StatusDashboard({ currentLocation, loading, members, onMemberPress }: Props) {
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Family Status</Text>
-          <Text style={styles.subtitle}>{members.length ? `${members.length} members visible` : 'No members synced'}</Text>
+  const [expanded, setExpanded] = useState(false);
+  const panRef = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 10,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -30) setExpanded(true);
+        else if (g.dy > 30) setExpanded(false);
+      },
+    }),
+  ).current;
+
+  const memberList = (
+    <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} style={expanded ? styles.expandedScroll : undefined}>
+      {members.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No family members yet</Text>
+          <Text style={styles.emptyBody}>Add rows in Supabase or run in demo mode.</Text>
         </View>
-        {loading ? <ActivityIndicator color={colors.accent} size="small" /> : null}
-      </View>
+      ) : (
+        members.map((member) => {
+          const theme = statusTheme[member.status];
+          const hasLocation = hasValidCoordinate(member.lat, member.lng);
+          const distance =
+            currentLocation && hasLocation
+              ? formatDistance(
+                  distanceMiles(currentLocation, {
+                    latitude: member.lat ?? 0,
+                    longitude: member.lng ?? 0,
+                  }),
+                )
+              : 'location pending';
 
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {members.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No family members yet</Text>
-            <Text style={styles.emptyBody}>Add rows in Supabase or run in demo mode.</Text>
-          </View>
-        ) : (
-          members.map((member) => {
-            const theme = statusTheme[member.status];
-            const hasLocation = hasValidCoordinate(member.lat, member.lng);
-            const distance =
-              currentLocation && hasLocation
-                ? formatDistance(
-                    distanceMiles(currentLocation, {
-                      latitude: member.lat ?? 0,
-                      longitude: member.lng ?? 0,
-                    }),
-                  )
-                : 'location pending';
-
-            return (
-              <Pressable key={member.id} onPress={() => onMemberPress?.(member.id)}>
-                <View style={styles.card}>
+          return (
+            <Pressable key={member.id} onPress={() => onMemberPress?.(member.id)}>
+              <View style={styles.card}>
                 <View style={[styles.avatar, { borderColor: theme.borderColor }]}>
                   <Text style={styles.avatarText}>{initialsFor(member.name) || '?'}</Text>
                 </View>
@@ -95,11 +98,33 @@ export default function StatusDashboard({ currentLocation, loading, members, onM
                   </View>
                 </View>
               </View>
-              </Pressable>
-            );
-          })
-        )}
-      </ScrollView>
+            </Pressable>
+          );
+        })
+      )}
+    </ScrollView>
+  );
+
+  return (
+    <View style={[styles.container, expanded && styles.containerExpanded]}>
+      <View {...panRef.panHandlers} style={styles.handle}>
+        <View style={styles.handleBar} />
+      </View>
+
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Family Status</Text>
+          <Text style={styles.subtitle}>{members.length ? `${members.length} members visible` : 'No members synced'}</Text>
+        </View>
+        {loading ? <ActivityIndicator color={colors.accent} size="small" /> : null}
+        {expanded ? (
+          <Pressable onPress={() => setExpanded(false)}>
+            <Ionicons color={colors.textMuted} name="chevron-down" size={20} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {memberList}
     </View>
   );
 }
@@ -113,6 +138,24 @@ const styles = StyleSheet.create({
     flex: 0.78,
     minHeight: 164,
     padding: 14,
+    paddingTop: 0,
+  },
+  containerExpanded: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 0,
+    flex: 1,
+    zIndex: 100,
+  },
+  handle: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  handleBar: {
+    backgroundColor: colors.textMuted,
+    borderRadius: 3,
+    height: 4,
+    opacity: 0.5,
+    width: 36,
   },
   header: {
     alignItems: 'center',
@@ -130,9 +173,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  expandedScroll: {
+    flex: 1,
+  },
   listContent: {
     gap: 9,
-    paddingBottom: 2,
+    paddingBottom: 20,
   },
   card: {
     alignItems: 'center',
