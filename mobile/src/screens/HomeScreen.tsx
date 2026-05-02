@@ -626,7 +626,6 @@ export default function HomeScreen() {
           lat: actionLocation?.latitude,
           lng: actionLocation?.longitude,
         });
-        await sendMessage(config.text);
 
         if (action === 'help' && supabase && isSupabaseConfigured && SUPABASE_FAMILY_ID) {
           await supabase.from('notifications').insert({
@@ -638,6 +637,8 @@ export default function HomeScreen() {
             lng: actionLocation?.longitude ?? null,
           });
         }
+
+        await sendMessage(config.text);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : 'Quick action failed.');
       }
