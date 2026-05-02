@@ -36,8 +36,8 @@ function formatTimestamp(value?: string | null): string {
 
 function memberStatusLine(member: HouseholdMember): string {
   const speed = member.location?.speed_mps != null ? ` • ${Math.round(member.location.speed_mps * 2.237)} mph` : "";
-  const mobile = member.mobile_status ? ` • mobile: ${member.mobile_status}` : "";
-  return `${member.name}: ${member.status.replaceAll("_", " ").toUpperCase()}${speed}${mobile}`;
+  const displayStatus = member.mobile_status ?? member.status.replaceAll("_", " ");
+  return `${member.name}: ${displayStatus.toUpperCase()}${speed}`;
 }
 
 function routeLine(member: HouseholdMember, intents: NotificationIntent[]): string {
@@ -128,7 +128,8 @@ export default function DashboardPage() {
 
     const interval = setInterval(() => {
       getAuditLog().then(setAuditLog).catch(() => {});
-    }, 30000);
+      getHousehold().then(setHousehold).catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -250,9 +251,9 @@ export default function DashboardPage() {
         <section className="ops-panel area-members ops-members">
           <h2>Member status</h2>
           <div className="member-lines">
-            {household?.members.map((member, index) => (
+            {household?.members.map((member) => (
               <p key={member.id}>
-                <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
+                <strong>{memberStatusLine(member)}</strong>
                 <span>{routeLine(member, notificationIntents)}</span>
               </p>
             )) ?? <p className="muted-text">Loading household members...</p>}
@@ -287,7 +288,7 @@ export default function DashboardPage() {
                   <span className="audit-source">{entry.source_kind.toUpperCase()}</span>
                   <span className={`audit-severity sev-${entry.severity}`}>{entry.severity.toUpperCase()}</span>
                   <p className="audit-title">{entry.title}</p>
-                  <p className="audit-meta">
+                  <p className="audit-meta" suppressHydrationWarning>
                     {entry.event_type} •{" "}
                     {new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }).format(new Date(entry.ingested_at))}
                     {entry.pipeline_triggered ? " • pipeline triggered" : ""}

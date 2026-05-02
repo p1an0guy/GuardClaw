@@ -13,7 +13,7 @@ from app.services.camera_signals import CameraSignalService
 from app.services.classifier import local_classify_alert
 from app.services.hermes_adapter import HermesAdapter
 from app.services.messaging import MessagingService
-from app.services.risk_engine import build_action_plan
+from app.services.risk_engine import build_action_plan, _members_in_radius
 from app.services.supabase_household import SupabaseHouseholdService
 from app.services.demo_seed import ensure_demo_seed
 
@@ -32,13 +32,15 @@ async def run_alert_pipeline(
         store.set_household(household)
     camera_signal = CameraSignalService(settings).create_signal(include_camera, camera_scenario)
     hermes = HermesAdapter(settings)
-    classification, classifier_note = await hermes.classify_alert(event, household, camera_signal)
+    proximity_ids = _members_in_radius(household, event, settings.alert_radius_km)
+    proximity_members = [{"id": m.id, "name": m.name} for m in household.members if m.id in proximity_ids]
+    classification, classifier_note = await hermes.classify_alert(event, household, camera_signal, proximity_members)
     if classification is None:
         classification = local_classify_alert(event, household, camera_signal, [classifier_note])
 
-    plan = build_action_plan(event, household, classification, camera_signal)
+    plan = build_action_plan(event, household, classification, camera_signal, radius_km=settings.alert_radius_km)
 
-    plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan)
+    plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan, proximity_members)
 
     store.clear_timeline()
     store.add_timeline(
@@ -83,6 +85,16 @@ async def run_alert_pipeline(
             title="Action plan generated",
             detail=plan.rationale,
             metadata={"generated_by": plan.generated_by, "hermes_note": hermes_note},
+        )
+    )
+    webhook_ok, webhook_note = await hermes.send_family_alert_triage(event, household, proximity_ids)
+    store.add_timeline(
+        TimelineEntry(
+            incident_id=event.id,
+            kind="hermes_webhook_sent" if webhook_ok else "hermes_webhook_skipped",
+            title="Hermes webhook dispatched" if webhook_ok else "Hermes webhook skipped",
+            detail=webhook_note,
+            metadata={"proximity_member_count": len(proximity_ids)},
         )
     )
     for action in plan.recommended_actions:

@@ -110,6 +110,8 @@ class ThreatEvent(BaseModel):
     source_kind: SourceKind
     source_name: str
     source_url: HttpUrl | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     is_live: bool = False
     is_simulated: bool = True
     demo_mode: bool = True

@@ -45,11 +45,19 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
-def _props_to_threat_event(props: dict[str, Any]) -> ThreatEvent:
+def _props_to_threat_event(props: dict[str, Any], geometry: dict[str, Any] | None = None) -> ThreatEvent:
     severity = _map_nws_severity(str(props.get("severity") or "moderate"))
     issued = _parse_datetime(props.get("sent") or props.get("effective")) or utc_now()
     expires = _parse_datetime(props.get("expires"))
     headline = props.get("headline") or props.get("event") or "National Weather Service alert"
+    lat: float | None = None
+    lng: float | None = None
+    if geometry:
+        coords = geometry.get("coordinates")
+        if coords and isinstance(coords, list) and len(coords) > 0:
+            first = coords[0]
+            if isinstance(first, list) and len(first) >= 2:
+                lng, lat = float(first[0]), float(first[1])
     return ThreatEvent(
         id=f"nws_{new_id('live')}",
         event_type=str(props.get("event") or "weather_alert"),
@@ -65,6 +73,8 @@ def _props_to_threat_event(props: dict[str, Any]) -> ThreatEvent:
         is_live=True,
         is_simulated=False,
         demo_mode=False,
+        latitude=lat,
+        longitude=lng,
         raw={"nws_id": props.get("id"), "area_desc": props.get("areaDesc")},
     )
 
@@ -97,7 +107,7 @@ class NWSPoller:
             nws_id = str(props.get("id") or "")
             if not nws_id or store.has_audit_entry(SourceKind.NWS, nws_id):
                 continue
-            event = _props_to_threat_event(props)
+            event = _props_to_threat_event(props, feature.get("geometry"))
             entry = AlertAuditEntry(
                 source_kind=SourceKind.NWS,
                 source_id=nws_id,

@@ -43,6 +43,15 @@ class AlertSourceService:
             return None
 
         props = features[0].get("properties") or {}
+        geometry = features[0].get("geometry")
+        lat: float | None = None
+        lng: float | None = None
+        if geometry:
+            coords = geometry.get("coordinates")
+            if coords and isinstance(coords, list) and len(coords) > 0:
+                first = coords[0]
+                if isinstance(first, list) and len(first) >= 2:
+                    lng, lat = float(first[0]), float(first[1])
         severity = self._map_nws_severity(str(props.get("severity") or "moderate"))
         issued = self._parse_datetime(props.get("sent") or props.get("effective")) or utc_now()
         expires = self._parse_datetime(props.get("expires"))
@@ -63,6 +72,8 @@ class AlertSourceService:
             is_live=True,
             is_simulated=False,
             demo_mode=False,
+            latitude=lat,
+            longitude=lng,
             raw={"nws_id": props.get("id"), "area_desc": props.get("areaDesc")},
         )
 
@@ -182,6 +193,8 @@ class AlertSourceService:
             is_live=False,
             is_simulated=True,
             demo_mode=True,
+            latitude=35.2828,
+            longitude=-120.6596,
             raw={"fixture": True, "source": source.value, "source_freshness": "replay"},
         )
 

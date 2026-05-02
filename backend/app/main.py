@@ -20,10 +20,6 @@ from app.models.schemas import (
 )
 from app.services.alert_sources import AlertSourceService
 from app.services.demo_seed import ensure_demo_seed
-from app.services.hermes_adapter import HermesAdapter
-from app.services.messaging import MessagingService
-from app.services.notification_writer import write_notifications
-from app.services.risk_engine import build_action_plan
 from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
 from app.services.supabase_household import SupabaseHouseholdService
@@ -60,84 +56,12 @@ async def simulate_event(
 ) -> ActiveIncidentResponse:
     payload = request or SimulateEventRequest()
     event = await AlertSourceService().create_event(payload)
-    camera_signal = CameraSignalService(settings).create_signal(payload.include_camera, payload.camera_scenario)
-    hermes = HermesAdapter(settings)
-    classification, classifier_note = await hermes.classify_alert(event, household, camera_signal)
-    if classification is None:
-        classification = local_classify_alert(event, household, camera_signal, [classifier_note])
-
-    plan = build_action_plan(event, household, classification, camera_signal)
-
-    plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan)
-
-    await write_notifications(settings, household, plan)
-
-    store.clear_timeline()
-    store.add_timeline(
-        TimelineEntry(
-            incident_id=event.id,
-            kind="incident_created",
-            title="Simulated incident created",
-            detail=f"{event.title} was ingested from {event.source_name}.",
-            metadata={
-                "source": event.source_kind.value,
-                "is_live": event.is_live,
-                "is_simulated": event.is_simulated,
-            },
-        )
-    )
-    if camera_signal is not None:
-        store.add_timeline(
-            TimelineEntry(
-                incident_id=event.id,
-                kind="camera_signal_ingested",
-                title=f"{camera_signal.label} attached",
-                detail=camera_signal.summary,
-                metadata=camera_signal.model_dump(mode="json"),
-            )
-        )
-    store.add_timeline(
-        TimelineEntry(
-            incident_id=event.id,
-            kind="alert_classified",
-            title=f"Alert classified as {classification.level.value.replace('_', ' ')}",
-            detail=classification.rationale,
-            metadata={
-                **classification.model_dump(mode="json"),
-                "classifier_note": classifier_note,
-            },
-        )
-    )
-    store.add_timeline(
-        TimelineEntry(
-            incident_id=event.id,
-            kind="plan_created",
-            title="Action plan generated",
-            detail=plan.rationale,
-            metadata={"generated_by": plan.generated_by, "hermes_note": hermes_note},
-        )
-    )
-    for action in plan.recommended_actions:
-        store.add_timeline(
-            TimelineEntry(
-                id=action.id,
-                incident_id=event.id,
-                kind="recommended_action",
-                title=action.label,
-                detail=action.detail,
-                metadata={"priority": action.priority},
-            )
-        )
-
-    sent_messages = await MessagingService(store, hermes).send_all(plan.outbound_messages)
-    plan = plan.model_copy(update={"outbound_messages": sent_messages})
-    store.set_active_incident(event, plan)
-    return ActiveIncidentResponse(
-        incident=event,
-        action_plan=plan,
-        camera_signal=camera_signal,
-        classification=classification,
-        demo_mode=True,
+    return await run_alert_pipeline(
+        event,
+        store,
+        settings,
+        include_camera=payload.include_camera,
+        camera_scenario=payload.camera_scenario,
     )
 
 
