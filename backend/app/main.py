@@ -14,24 +14,31 @@ from app.models.schemas import (
     AcknowledgeResponse,
     ActiveIncidentResponse,
     AlertAuditEntry,
+    AlertAuditEntry,
     HouseholdState,
     SimulateEventRequest,
     TimelineEntry,
 )
 from app.services.alert_sources import AlertSourceService
 from app.services.demo_seed import ensure_demo_seed
+from app.services.hermes_adapter import HermesAdapter
+from app.services.messaging import MessagingService
+from app.services.notification_writer import write_notifications
+from app.services.risk_engine import build_action_plan
 from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
-from app.services.supabase_audit import SupabaseAuditService
 from app.services.supabase_household import SupabaseHouseholdService
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logging.basicConfig(level=logging.INFO)
     store.initialize()
     ensure_demo_seed(store)
     poller_task = asyncio.create_task(NWSPoller().run(store, settings))
+    poller_task = asyncio.create_task(NWSPoller().run(store, settings))
     yield
+    poller_task.cancel()
     poller_task.cancel()
 
 
@@ -92,4 +99,4 @@ async def get_timeline() -> list[TimelineEntry]:
 
 @app.get("/api/alerts/audit-log", response_model=list[AlertAuditEntry])
 async def get_audit_log() -> list[AlertAuditEntry]:
-    return await SupabaseAuditService(settings).list_entries()
+    return store.list_audit_log()
