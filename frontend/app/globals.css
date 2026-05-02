@@ -171,20 +171,21 @@ button:disabled {
 }
 
 .ops-headline-panel {
-  min-height: 276px;
-  display: grid;
-  align-content: space-between;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background: var(--paper);
+  border-left: 4px solid var(--olive);
 }
 
 .incident-pill {
   width: fit-content;
   max-width: calc(100% - 36px);
-  margin: 18px 18px 0;
+  margin: 16px 18px 0;
   border: 1px solid var(--line);
   background: var(--paper-2);
   color: var(--olive);
-  padding: 7px 10px;
+  padding: 6px 10px;
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.25;
@@ -192,29 +193,25 @@ button:disabled {
 }
 
 .headline-wrap {
-  display: grid;
-  align-content: end;
-  gap: 12px;
-  padding: clamp(20px, 2.7vw, 32px);
+  padding: clamp(16px, 2vw, 24px) clamp(16px, 2vw, 24px) clamp(16px, 2vw, 24px);
 }
 
-.ops-kicker {
-  margin: 0;
-  color: var(--olive);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
+.headline-ticker-wrap {
+  overflow: hidden;
 }
 
-.ops-headline-panel h1 {
-  max-width: 960px;
+.headline-ticker {
+  display: block;
   margin: 0;
   color: var(--ink);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2.3rem, 5.4vw, 5rem);
+  font-size: clamp(1.8rem, 3.8vw, 3.4rem);
   font-weight: 700;
-  letter-spacing: 0;
-  line-height: 0.92;
+  line-height: 1.05;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .headline-controls {

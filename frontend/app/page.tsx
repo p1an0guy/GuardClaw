@@ -195,8 +195,11 @@ export default function DashboardPage() {
               : `DEMO MODE • ${loading ? "LOADING" : "NO ACTIVE INCIDENT"}`}
           </div>
           <div className="headline-wrap">
-            <p className="ops-kicker">GuardClaw household safety coordinator</p>
-            <h1>{incident ? incident.title.toUpperCase() : "ACTIVE ALERT HEADLINER"}</h1>
+            <div className="headline-ticker-wrap" aria-live="polite">
+              <p className="headline-ticker">
+                {incident ? incident.title.toUpperCase() : "ACTIVE ALERT HEADLINER"}
+              </p>
+            </div>
             <div className="headline-controls">
               <select
                 aria-label="Replay source"
