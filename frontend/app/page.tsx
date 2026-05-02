@@ -62,26 +62,51 @@ function sourceFreshness(active: ActiveIncidentResponse | null): string {
   return incident.is_simulated ? "Replay fixture" : "Official source";
 }
 
-function CctvPanel({ label, signal, featured = false }: { label: string; signal?: CameraSignal | null; featured?: boolean }) {
+function CctvHud({ camId, timestamp }: { camId: string; timestamp: string }) {
+  return (
+    <>
+      <p className="cctv-label">
+        <span className="cctv-rec">● REC</span> {camId}
+      </p>
+      <p className="cctv-timestamp">{timestamp}</p>
+    </>
+  );
+}
+
+function CctvPanel({
+  label,
+  imageSrc,
+  signal,
+  featured = false,
+}: {
+  label: string;
+  imageSrc: string;
+  signal?: CameraSignal | null;
+  featured?: boolean;
+}) {
   const areaClass = label.toLowerCase().replace(" ", "");
+  const ts = new Date().toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
   return (
     <section className={`ops-panel ${areaClass}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageSrc} alt={`${label} feed`} className="cctv-video" />
+      <div className="cctv-shade" />
+      <CctvHud camId={label} timestamp={ts} />
       {featured && signal ? (
         <>
-          <video aria-label={`${signal.label} prerecorded CCTV clip`} autoPlay loop muted playsInline className="cctv-video">
-            <source src={signal.clip_url} type="video/mp4" />
-          </video>
-          <div className="cctv-shade" />
-          <p className="cctv-label">{signal.label}</p>
           <p className="cctv-status">{signal.occupancy_confirmed ? "OCCUPANCY CONFIRMED" : "NO OCCUPANCY"}</p>
-          <p className="cctv-note">{Math.round(signal.confidence * 100)}% confidence • prerecorded</p>
+          <p className="cctv-note">{Math.round(signal.confidence * 100)}% confidence • {signal.label}</p>
         </>
       ) : (
-        <>
-          <p className="cctv-label">{label}</p>
-          <p className="no-signal">STANDBY</p>
-          <p className="cctv-note">Prerecorded feed slot</p>
-        </>
+        <p className="cctv-note">CAM {label.replace("CCTV ", "")} • LIVE</p>
       )}
     </section>
   );
@@ -267,10 +292,10 @@ export default function DashboardPage() {
           <p>Hermes handles Telegram and outbound calls. Backend validates classification and logs each result.</p>
         </section>
 
-        <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
-        <CctvPanel label="CCTV 2" />
-        <CctvPanel label="CCTV 3" />
-        <CctvPanel label="CCTV 4" />
+        <CctvPanel featured label="CCTV 1" imageSrc="/cctv/cam1.png" signal={cameraSignal} />
+        <CctvPanel label="CCTV 2" imageSrc="/cctv/cam2.png" />
+        <CctvPanel label="CCTV 3" imageSrc="/cctv/cam3.png" />
+        <CctvPanel label="CCTV 4" imageSrc="/cctv/cam4.png" />
 
         <section className="ops-panel area-chat ops-chat">
           <h2>Live chat with GuardClaw</h2>
