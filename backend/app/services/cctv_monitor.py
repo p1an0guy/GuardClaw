@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
 from app.core.config import Settings
 from app.services.camera_service import CameraService
@@ -33,9 +34,13 @@ class CCTVMonitor:
             if not cam.get("enabled") or not cam.get("stream_url"):
                 continue
             camera_id = str(cam["id"])
+            source = cam["stream_url"]
+            # Resolve relative paths against the configured base path
+            if not source.startswith(("rtsp://", "http://", "https://", "/")):
+                source = os.path.join(self.settings.cctv_video_base_path, source)
             detector = CCTVDetector(
                 camera_id=camera_id,
-                source=cam["stream_url"],
+                source=source,
                 fps=2,
             )
             self._detectors[camera_id] = detector
