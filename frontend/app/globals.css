@@ -6,28 +6,28 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  --background: #ece8de;
-  --paper: #fbfaf5;
-  --paper-2: #f3f0e8;
-  --paper-3: #fffdf7;
-  --ink: #222824;
-  --muted: #667166;
-  --line: #d8d1c3;
-  --olive: #52624d;
-  --rust: #b85c38;
-  --red: #a83a40;
-  --gold: #bd8b2f;
-  --blue: #4a6677;
-  --sage: var(--olive);
-  --tide: var(--blue);
-  --clay: var(--rust);
+  color-scheme: dark;
+  --background: #080B10;
+  --paper: #101720;
+  --paper-2: #151E2A;
+  --paper-3: #192331;
+  --ink: #F3F7FB;
+  --muted: #94A3B8;
+  --line: #243244;
+  --olive: #4FD1C5;
+  --rust: #F87171;
+  --red: #F87171;
+  --gold: #FBBF24;
+  --blue: #60A5FA;
+  --sage: #4FD1C5;
+  --tide: #60A5FA;
+  --clay: #F87171;
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: #b8ad99 transparent;
+  scrollbar-color: #243244 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -40,7 +40,7 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #b8ad99;
+  background: #243244;
 }
 
 html,
@@ -98,9 +98,9 @@ button:disabled {
   position: sticky;
   top: 14px;
   z-index: 10;
-  border: 1px solid #df9b89;
-  background: #fff0ed;
-  color: #7c2d22;
+  border: 1px solid #F87171;
+  background: #1a0f0f;
+  color: #F87171;
   padding: 12px 14px;
   margin-bottom: 14px;
   font-weight: 800;
@@ -233,14 +233,14 @@ button:disabled {
 .mini-button,
 .ops-dispatch button {
   min-height: 40px;
-  border: 1px solid #2d332f;
+  border: 1px solid var(--line);
   border-radius: 0;
   font-weight: 800;
 }
 
 .ops-select {
   min-width: 176px;
-  background: var(--paper-3);
+  background: var(--paper-2);
   color: var(--ink);
   padding: 0 11px;
 }
@@ -249,18 +249,18 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--paper-3);
+  background: var(--paper-2);
   color: var(--ink);
   padding: 0 12px;
 }
 
 .ops-toggle input {
-  accent-color: #2d332f;
+  accent-color: #4FD1C5;
 }
 
 .ops-button {
-  background: #2d332f;
-  color: var(--paper);
+  background: #4FD1C5;
+  color: #080B10;
   padding: 0 14px;
 }
 
@@ -315,7 +315,7 @@ button:disabled {
 .classification-level {
   width: fit-content;
   margin: 0 0 12px;
-  border-top: 3px solid var(--rust);
+  border-top: 3px solid #4FD1C5;
   background: var(--paper-2);
   color: var(--ink);
   padding: 9px 10px;
@@ -385,14 +385,14 @@ button:disabled {
 }
 
 .mini-button {
-  background: #2d332f;
-  color: var(--paper);
+  background: #4FD1C5;
+  color: #080B10;
 }
 
 .ack-label {
-  border: 1px solid var(--line);
-  background: #e5edde;
-  color: #33482e;
+  border: 1px solid #4FD1C5;
+  background: #0F2A28;
+  color: #4FD1C5;
 }
 
 .ops-map {
@@ -416,19 +416,19 @@ button:disabled {
 }
 
 .gps-map-canvas.leaflet-container {
-  background: #e7e0d0;
+  background: #0D1117;
   font-family: "Aptos", "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
 
 .gps-map-canvas .leaflet-tile {
-  filter: saturate(0.55) contrast(0.95) brightness(1.04);
+  filter: invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8);
 }
 
 .gps-map-canvas .leaflet-control-attribution {
   margin: 0 10px 8px 0;
   border: 1px solid var(--line);
   border-radius: 0;
-  background: rgba(251, 250, 245, 0.88);
+  background: rgba(16, 23, 32, 0.88);
   color: var(--muted);
   font-size: 0.62rem;
   font-weight: 700;
@@ -442,7 +442,7 @@ button:disabled {
 
 .gps-map-canvas .leaflet-control-zoom a {
   border: 0;
-  background: rgba(251, 250, 245, 0.94);
+  background: rgba(16, 23, 32, 0.94);
   color: var(--ink);
   font-weight: 900;
 }
@@ -471,7 +471,7 @@ button:disabled {
   position: absolute;
   z-index: 1;
   border: 1px solid var(--line);
-  background: rgba(251, 250, 245, 0.9);
+  background: rgba(16, 23, 32, 0.9);
 }
 
 .gps-map-overlay {
@@ -510,7 +510,7 @@ button:disabled {
 }
 
 .gps-map-legend {
-  right: 16px;
+  left: 16px;
   bottom: 16px;
   display: flex;
   flex-wrap: wrap;
@@ -588,7 +588,7 @@ button:disabled {
   display: grid;
   gap: 5px;
   margin: 0;
-  border-top: 3px solid var(--olive);
+  border-top: 3px solid #4FD1C5;
   background: var(--paper-2);
   padding: 10px;
   line-height: 1.25;
@@ -634,8 +634,8 @@ button:disabled {
   min-height: 158px;
   display: grid;
   place-items: center;
-  background: #2d332f;
-  color: var(--paper);
+  background: #101720;
+  color: var(--ink);
   text-align: center;
 }
 
@@ -665,7 +665,7 @@ button:disabled {
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(180deg, rgba(45, 51, 47, 0.16), rgba(45, 51, 47, 0.68)),
+    linear-gradient(180deg, rgba(16, 23, 32, 0.16), rgba(16, 23, 32, 0.68)),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 7px);
 }
 
@@ -675,7 +675,7 @@ button:disabled {
   left: 16px;
   z-index: 2;
   margin: 0;
-  color: #d9d4c9;
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -685,7 +685,7 @@ button:disabled {
   position: relative;
   z-index: 1;
   margin: 0;
-  color: var(--paper);
+  color: var(--ink);
   font-size: clamp(1.45rem, 2.5vw, 3rem);
   font-weight: 900;
   letter-spacing: 0;
@@ -695,10 +695,10 @@ button:disabled {
   position: relative;
   z-index: 2;
   margin: 0;
-  border: 1px solid rgba(251, 250, 245, 0.36);
-  background: rgba(184, 92, 56, 0.34);
+  border: 1px solid rgba(248, 113, 113, 0.36);
+  background: rgba(248, 113, 113, 0.18);
   padding: 8px 12px;
-  color: var(--paper);
+  color: var(--ink);
   font-size: clamp(0.92rem, 1.28vw, 1.28rem);
   font-weight: 900;
 }
@@ -709,7 +709,7 @@ button:disabled {
   bottom: 12px;
   z-index: 2;
   margin: 0;
-  color: #d9d4c9;
+  color: var(--muted);
   font-size: 0.66rem;
   font-weight: 800;
 }
@@ -737,7 +737,7 @@ button:disabled {
 
 .chat-bubble.inbound {
   justify-self: end;
-  background: #e5edde;
+  background: #0F2A28;
 }
 
 .chat-input {
@@ -811,7 +811,7 @@ button:disabled {
   }
 
   .gps-map-legend {
-    right: 10px;
+    left: 10px;
     bottom: 10px;
     max-width: calc(100% - 20px);
   }
@@ -861,8 +861,8 @@ button:disabled {
   font-weight: 700;
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  background: var(--blue);
-  color: var(--paper);
+  background: #60A5FA;
+  color: #080B10;
   letter-spacing: 0.05em;
 }
 
