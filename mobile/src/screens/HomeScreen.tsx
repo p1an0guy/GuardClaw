@@ -5,6 +5,7 @@ import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import AlertsLog from '../components/AlertsLog';
 import ChatDock from '../components/ChatDock';
 import FamilyMap from '../components/FamilyMap';
 import QuickActions from '../components/QuickActions';
@@ -19,9 +20,10 @@ import {
   type SupabaseLocationRow,
   type SupabaseMemberRow,
   type SupabaseMessageRow,
+  type SupabaseNotificationRow,
 } from '../lib/supabase';
 import { colors } from '../theme';
-import { type Coordinate, type FamilyMember, type FamilyMessage, MEMBER_STATUSES, type MemberStatus, type QuickActionId } from '../types';
+import { type AppNotification, type Coordinate, type FamilyMember, type FamilyMessage, MEMBER_STATUSES, type MemberStatus, type QuickActionId } from '../types';
 
 type LocationState = 'requesting' | 'live' | 'denied' | 'unavailable';
 
@@ -123,6 +125,8 @@ const upsertMessage = (messages: FamilyMessage[], message: FamilyMessage) => {
 export default function HomeScreen() {
   const [members, setMembers] = useState<FamilyMember[]>(() => isSupabaseConfigured ? [] : sortMembers(mockMembers));
   const [messages, setMessages] = useState<FamilyMessage[]>(isSupabaseConfigured ? [] : mockMessages);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [banner, setBanner] = useState<{ title: string; lat: number | null; lng: number | null } | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
@@ -454,7 +458,7 @@ export default function HomeScreen() {
     const loadInitialData = async () => {
       setLoadingBackend(true);
 
-      const [memberResponse, messageResponse] = await Promise.all([
+      const [memberResponse, messageResponse, notifResponse] = await Promise.all([
         client
           .from('members')
           .select('*')
@@ -466,6 +470,12 @@ export default function HomeScreen() {
           .eq('family_id', SUPABASE_FAMILY_ID)
           .order('created_at', { ascending: false })
           .limit(60),
+        client
+          .from('notifications')
+          .select('*')
+          .eq('family_id', SUPABASE_FAMILY_ID)
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
 
       if (!active) {
@@ -485,6 +495,9 @@ export default function HomeScreen() {
           .map(rowToMessage)
           .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
       );
+      if (notifResponse.data) {
+        setNotifications(notifResponse.data as AppNotification[]);
+      }
       setNotice(null);
       setLoadingBackend(false);
     };
@@ -529,10 +542,25 @@ export default function HomeScreen() {
       )
       .subscribe();
 
+    const notifChannel = client
+      .channel(`notifications:${SUPABASE_FAMILY_ID}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `family_id=eq.${SUPABASE_FAMILY_ID}` },
+        (payload) => {
+          const row = payload.new as SupabaseNotificationRow;
+          setNotifications((prev) => [row as AppNotification, ...prev]);
+          setBanner({ title: row.title, lat: row.lat ?? null, lng: row.lng ?? null });
+          setTimeout(() => setBanner(null), 4000);
+        },
+      )
+      .subscribe();
+
     return () => {
       active = false;
       client.removeChannel(memberChannel);
       client.removeChannel(messageChannel);
+      client.removeChannel(notifChannel);
     };
   }, []);
 
@@ -601,6 +629,29 @@ export default function HomeScreen() {
           lat: actionLocation?.latitude,
           lng: actionLocation?.longitude,
         });
+
+        if (action === 'help' && supabase && isSupabaseConfigured && SUPABASE_FAMILY_ID) {
+          let locationLabel = '';
+          if (actionLocation) {
+            try {
+              const [geo] = await Location.reverseGeocodeAsync(actionLocation);
+              if (geo) {
+                locationLabel = [geo.name, geo.street, geo.city].filter(Boolean).join(', ');
+              }
+            } catch {}
+          }
+          await supabase.from('notifications').insert({
+            family_id: SUPABASE_FAMILY_ID,
+            target_role: 'guardian',
+            title: `${SUPABASE_MEMBER_NAME} needs help`,
+            body: locationLabel
+              ? `${SUPABASE_MEMBER_NAME} needs help near ${locationLabel}.`
+              : `${SUPABASE_MEMBER_NAME} has triggered a help alert.`,
+            lat: actionLocation?.latitude ?? null,
+            lng: actionLocation?.longitude ?? null,
+          });
+        }
+
         await sendMessage(config.text);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : 'Quick action failed.');
@@ -610,8 +661,14 @@ export default function HomeScreen() {
   );
 
   const connectionLabel = isSupabaseConfigured ? 'Supabase live' : 'Demo data';
-  const [activeTab, setActiveTab] = useState<'home' | 'chat'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'alerts'>('home');
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
+  const [focusedCoordinate, setFocusedCoordinate] = useState<Coordinate | null>(null);
+
+  const currentMemberRole = members.find((m) => m.id === SUPABASE_MEMBER_ID)?.role ?? 'guardian';
+  const filteredNotifications = currentMemberRole === 'guardian'
+    ? notifications
+    : notifications.filter((n) => n.target_role === 'all');
 
   return (
     <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.safeArea}>
@@ -642,11 +699,28 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {banner ? (
+          <Pressable
+            onPress={() => {
+              if (banner.lat != null && banner.lng != null) {
+                setActiveTab('home');
+                setFocusedCoordinate({ latitude: banner.lat, longitude: banner.lng });
+              }
+              setBanner(null);
+            }}
+            style={styles.banner}
+          >
+            <Ionicons color={colors.danger} name="alert-circle" size={18} />
+            <Text numberOfLines={1} style={styles.bannerText}>{banner.title}</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.content}>
           {activeTab === 'home' ? (
             <>
               <FamilyMap
                 currentLocation={currentLocation}
+                focusedCoordinate={focusedCoordinate}
                 focusedMemberId={focusedMemberId}
                 locationState={locationState}
                 members={members}
@@ -654,7 +728,7 @@ export default function HomeScreen() {
               <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} members={members} onMemberPress={setFocusedMemberId} />
               <QuickActions disabled={loadingBackend || sending} onAction={handleQuickAction} />
             </>
-          ) : (
+          ) : activeTab === 'chat' ? (
             <ChatDock
               currentSender={SUPABASE_MEMBER_NAME}
               disabled={loadingBackend}
@@ -664,6 +738,8 @@ export default function HomeScreen() {
               onSendMessage={sendMessage}
               sending={sending}
             />
+          ) : (
+            <AlertsLog notifications={filteredNotifications} />
           )}
         </View>
 
@@ -675,6 +751,14 @@ export default function HomeScreen() {
           >
             <Ionicons color={activeTab === 'home' ? colors.accent : colors.textMuted} name="map" size={22} />
             <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>Home</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            onPress={() => setActiveTab('alerts')}
+            style={[styles.tab, activeTab === 'alerts' && styles.tabActive]}
+          >
+            <Ionicons color={activeTab === 'alerts' ? colors.accent : colors.textMuted} name="notifications" size={22} />
+            <Text style={[styles.tabLabel, activeTab === 'alerts' && styles.tabLabelActive]}>Alerts</Text>
           </Pressable>
           <Pressable
             accessibilityRole="tab"
@@ -775,6 +859,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 17,
+  },
+  banner: {
+    alignItems: 'center',
+    backgroundColor: '#3a1c1c',
+    borderColor: colors.danger,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  bannerText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
   },
   content: {
     flex: 1,

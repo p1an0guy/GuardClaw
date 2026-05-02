@@ -111,9 +111,9 @@ class SupabaseHouseholdService:
         speed_mps = self._float((latest_location or {}).get("speed_mps"))
         status = self._map_status(mobile_status, lat, lng, speed_mps, contact)
         role = MemberRole.GUARDIAN
-        if str((contact or {}).get("role") or "").lower() == "child":
-            role = MemberRole.CHILD
-        elif "child" in str(row.get("name") or "").lower():
+        row_role = str(row.get("role") or "").lower()
+        contact_role = str((contact or {}).get("role") or "").lower()
+        if row_role == "child" or contact_role == "child":
             role = MemberRole.CHILD
 
         observed_raw = (latest_location or row).get("observed_at") or row.get("updated_at")

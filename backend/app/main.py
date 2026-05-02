@@ -21,6 +21,7 @@ from app.services.classifier import local_classify_alert
 from app.services.demo_seed import ensure_demo_seed
 from app.services.hermes_adapter import HermesAdapter
 from app.services.messaging import MessagingService
+from app.services.notification_writer import write_notifications
 from app.services.risk_engine import build_action_plan
 from app.services.supabase_household import SupabaseHouseholdService
 
@@ -67,6 +68,8 @@ async def simulate_event(
     plan = build_action_plan(event, household, classification, camera_signal)
 
     plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan)
+
+    await write_notifications(settings, household, plan)
 
     store.clear_timeline()
     store.add_timeline(

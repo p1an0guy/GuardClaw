@@ -46,6 +46,17 @@ export type SupabaseContactRow = {
   priority: number | null;
 };
 
+export type SupabaseNotificationRow = {
+  id: string;
+  family_id: string;
+  target_role: string;
+  title: string;
+  body: string;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -91,6 +102,12 @@ export type Database = {
         Row: SupabaseContactRow;
         Insert: SupabaseContactRow;
         Update: Partial<SupabaseContactRow>;
+        Relationships: [];
+      };
+      notifications: {
+        Row: SupabaseNotificationRow;
+        Insert: Omit<SupabaseNotificationRow, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<SupabaseNotificationRow, 'id'>>;
         Relationships: [];
       };
     };
