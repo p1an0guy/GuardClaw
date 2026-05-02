@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -18,8 +18,9 @@ from app.models.schemas import (
 )
 from app.repositories.store import SQLiteStore
 from app.services.pipeline import run_alert_pipeline
+from app.services.supabase_audit import SupabaseAuditService
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn")
 
 NWS_AREA = "CA"  # California — location filtering handled on the frontend
 POLL_INTERVAL = 60  # seconds
@@ -64,7 +65,7 @@ def _props_to_threat_event(props: dict[str, Any], geometry: dict[str, Any] | Non
         title=str(headline),
         description=str(props.get("description") or props.get("instruction") or "Live NWS alert."),
         severity=severity,
-        location_label="San Luis Obispo, CA",
+        location_label="California",
         issued_at=issued,
         expires_at=expires,
         source_kind=SourceKind.NWS,
@@ -80,7 +81,11 @@ def _props_to_threat_event(props: dict[str, Any], geometry: dict[str, Any] | Non
 
 
 class NWSPoller:
+    def __init__(self) -> None:
+        self._audit: SupabaseAuditService | None = None
+
     async def run(self, store: SQLiteStore, settings: Settings) -> None:
+        self._audit = SupabaseAuditService(settings)
         while True:
             try:
                 await self._poll(store, settings)
@@ -102,10 +107,13 @@ class NWSPoller:
             features: list[dict[str, Any]] = response.json().get("features") or []
 
         logger.info("NWSPoller: polled area=%s — %d feature(s) returned", NWS_AREA, len(features))
+
         for feature in features:
             props = feature.get("properties") or {}
             nws_id = str(props.get("id") or "")
-            if not nws_id or store.has_audit_entry(SourceKind.NWS, nws_id):
+            seen = self._audit.has_entry(SourceKind.NWS, nws_id)
+            logger.info("NWSPoller: checking nws_id=%s seen=%s", nws_id[:40], seen)
+            if not nws_id or seen:
                 continue
             event = _props_to_threat_event(props, feature.get("geometry"))
             entry = AlertAuditEntry(
@@ -117,6 +125,6 @@ class NWSPoller:
                 pipeline_triggered=True,
                 raw=props,
             )
-            store.add_audit_entry(entry)
+            await self._audit.add_entry(entry)
             logger.info("NWSPoller: new alert ingested: %s", event.title)
             await run_alert_pipeline(event, store, settings)
