@@ -35,7 +35,7 @@ class Settings:
         )
     )
     cors_origins: list[str] = None  # type: ignore[assignment]
-    hermes_api_base_url: str = os.getenv("HERMES_API_BASE_URL", "http://127.0.0.1:8642/v1")
+    hermes_api_base_url: str = os.getenv("HERMES_API_BASE_URL", os.getenv("HERMES_BASE_URL", "http://127.0.0.1:8642/v1")).strip().strip("'\"\u2018\u2019\u201c\u201d")
     hermes_api_key: str = os.getenv("HERMES_API_KEY", "")
     hermes_model: str = os.getenv("HERMES_MODEL", "hermes-agent")
     use_hermes: bool = _bool_env("GUARDCLAW_USE_HERMES", False)
