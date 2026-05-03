@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getHousehold, getSavedLocations, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
@@ -12,6 +12,7 @@ import type {
   HouseholdMember,
   HouseholdState,
   NotificationIntent,
+  SavedLocation,
   SourceKind,
   TimelineEntry
 } from "@/lib/types";
@@ -47,6 +48,25 @@ function routeLine(member: HouseholdMember, intents: NotificationIntent[]): stri
     return "No alert route for current classification";
   }
   return `${intent.channel.toUpperCase()} • ${intent.reason}`;
+}
+
+function statusColorWeb(status: string): string {
+  const map: Record<string, string> = {
+    safe: "#34D399", home: "#60A5FA", away: "#60A5FA",
+    moving: "#FBBF24", commuting: "#FBBF24", work: "#FBBF24",
+    needs_help: "#F87171", offline: "#94A3B8",
+  };
+  return map[status.toLowerCase().replace(/\s+/g, "_")] ?? "#94A3B8";
+}
+
+function formatRelative(isoDate: string): string {
+  const diff = Math.max(0, Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000));
+  if (diff < 45) return "just now";
+  const m = Math.floor(diff / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function sourceFreshness(active: ActiveIncidentResponse | null): string {
@@ -129,6 +149,8 @@ export default function DashboardPage() {
   const [active, setActive] = useState<ActiveIncidentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -143,16 +165,18 @@ export default function DashboardPage() {
   const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse, auditLogResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse, auditLogResponse, savedLocationsResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
       getTimeline(),
-      getAuditLog()
+      getAuditLog(),
+      getSavedLocations().catch(() => [] as SavedLocation[]),
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
     setTimeline(timelineResponse);
     setAuditLog(auditLogResponse);
+    setSavedLocations(savedLocationsResponse);
   }
 
   useEffect(() => {
@@ -193,6 +217,15 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : "Acknowledgement failed.");
     } finally {
       setAckId(null);
+    }
+  }
+
+  async function handleMarkLocation(memberId: string, label: string) {
+    try {
+      await createSavedLocation(memberId, label);
+      setSavedLocations(await getSavedLocations().catch(() => [] as SavedLocation[]));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save location.");
     }
   }
 
@@ -286,18 +319,46 @@ export default function DashboardPage() {
         </section>
 
         <section className="ops-panel area-map ops-map">
-          <GpsMap members={household?.members ?? []} />
+          <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
         </section>
 
         <section className="ops-panel area-members ops-members">
-          <h2>Member status</h2>
-          <div className="member-lines">
-            {household?.members.map((member, index) => (
-              <p key={member.id}>
-                <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
-                <span>{routeLine(member, notificationIntents)}</span>
-              </p>
-            )) ?? <p className="muted-text">Loading household members...</p>}
+          <h2>Family Status</h2>
+          <p className="summary-subtitle">{household ? `${household.members.length} members visible` : "No members synced"}</p>
+          <div className="member-cards">
+            {household?.members.map((member) => {
+              const color = statusColorWeb(member.status);
+              return (
+                <div key={member.id} className="member-card" onClick={() => setFocusedMemberId(member.id)}>
+                  <div className="member-card-avatar" style={{ borderColor: color }}>
+                    <span>{member.name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "?"}</span>
+                  </div>
+                  <div className="member-card-info">
+                    <div className="member-card-top">
+                      <span className="member-card-name">{member.name}</span>
+                      <span className={`member-card-role ${member.role}`}>
+                        {member.role === "guardian" ? "🛡 Guardian" : "👤 Child"}
+                      </span>
+                      <span className="member-card-status" style={{ background: `${color}20`, borderColor: `${color}48`, color }}>
+                        <i style={{ background: color }} />
+                        {member.status.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                    <div className="member-card-meta">
+                      {member.location ? (
+                        <>
+                          <span>🕐 {formatRelative(member.location.observed_at)}</span>
+                          <span>📍 {member.location.source.replaceAll("_", " ")}</span>
+                        </>
+                      ) : (
+                        <span>📍 location pending</span>
+                      )}
+                      {member.mobile_status ? <span>📱 {member.mobile_status}</span> : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            }) ?? <p className="muted-text">Loading household members...</p>}
           </div>
         </section>
 
