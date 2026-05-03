@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap } from "leaflet";
+import type { LayerGroup, Map as LeafletMap } from "leaflet";
 
 import type { HouseholdMember, SavedLocation } from "@/lib/types";
 
@@ -25,29 +25,39 @@ function locationEmoji(label: string): string {
   return map[label.toLowerCase()] ?? "📍";
 }
 
-function formatLocationSource(source: string): string {
-  return source.replaceAll("_", " ");
-}
-
-function buildMemberPopup(member: HouseholdMember): HTMLElement {
+function buildMemberPopup(
+  member: HouseholdMember,
+  onMarkLocation?: (memberId: string, label: string) => void,
+): HTMLElement {
   const popup = document.createElement("div");
   popup.className = "gps-map-popup";
+
   const title = document.createElement("strong");
   title.textContent = member.name;
   popup.appendChild(title);
+
   const status = document.createElement("span");
-  status.textContent = `${member.role} - ${member.status}`;
+  status.textContent = `${member.role} · ${member.status.replaceAll("_", " ")}`;
   popup.appendChild(status);
+
   if (member.location) {
     const source = document.createElement("span");
-    source.textContent = `${member.location.label} - ${formatLocationSource(member.location.source)}`;
+    source.textContent = `${member.location.label} · ${member.location.source.replaceAll("_", " ")}`;
     popup.appendChild(source);
-    if (member.location.accuracy_meters !== null) {
-      const accuracy = document.createElement("span");
-      accuracy.textContent = `Accuracy: ${Math.round(member.location.accuracy_meters)}m`;
-      popup.appendChild(accuracy);
-    }
   }
+
+  if (onMarkLocation) {
+    const row = document.createElement("div");
+    row.className = "mark-location-menu";
+    for (const label of ["home", "school", "work"]) {
+      const btn = document.createElement("button");
+      btn.textContent = `${locationEmoji(label)} ${label}`;
+      btn.addEventListener("click", () => onMarkLocation(member.id, label));
+      row.appendChild(btn);
+    }
+    popup.appendChild(row);
+  }
+
   return popup;
 }
 
@@ -55,9 +65,10 @@ interface GpsMapProps {
   members: HouseholdMember[];
   savedLocations?: SavedLocation[];
   focusedMemberId?: string | null;
+  onMarkLocation?: (memberId: string, label: string) => void;
 }
 
-export function GpsMap({ members, savedLocations = [], focusedMemberId }: GpsMapProps) {
+export function GpsMap({ members, savedLocations = [], focusedMemberId, onMarkLocation }: GpsMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<LayerGroup | null>(null);
@@ -97,7 +108,6 @@ export function GpsMap({ members, savedLocations = [], focusedMemberId }: GpsMap
     };
   }, []);
 
-  // Update markers when members or savedLocations change
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
@@ -107,7 +117,6 @@ export function GpsMap({ members, savedLocations = [], focusedMemberId }: GpsMap
     markerLayer.clearLayers();
     const bounds = L.latLngBounds([CAL_POLY_CENTER]);
 
-    // Member avatar markers
     members.forEach((member) => {
       if (!member.location) return;
       const latLng: [number, number] = [member.location.latitude, member.location.longitude];
@@ -121,11 +130,10 @@ export function GpsMap({ members, savedLocations = [], focusedMemberId }: GpsMap
           iconAnchor: [21, 21],
         }),
       })
-        .bindPopup(buildMemberPopup(member))
+        .bindPopup(buildMemberPopup(member, onMarkLocation))
         .addTo(markerLayer);
     });
 
-    // Saved location markers + geofence circles
     savedLocations.forEach((loc) => {
       const latLng: [number, number] = [loc.lat, loc.lng];
       bounds.extend(latLng);
@@ -150,9 +158,8 @@ export function GpsMap({ members, savedLocations = [], focusedMemberId }: GpsMap
       map.fitBounds(bounds.pad(0.22), { maxZoom: 15 });
       initialFitDone.current = true;
     }
-  }, [members, savedLocations, locatedCount]);
+  }, [members, savedLocations, locatedCount, onMarkLocation]);
 
-  // Focus on member when focusedMemberId changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusedMemberId) return;

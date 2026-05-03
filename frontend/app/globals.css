@@ -615,30 +615,10 @@ button:disabled {
   border-color: var(--sage);
 }
 
-.member-mark-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-}
-
-.mark-location-btn {
-  all: unset;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.6;
-  transition: opacity 0.15s;
-}
-
-.mark-location-btn:hover {
-  opacity: 1;
-}
-
 .mark-location-menu {
-  display: inline-flex;
+  display: flex;
   gap: 4px;
+  margin-top: 6px;
 }
 
 .mark-location-menu button {

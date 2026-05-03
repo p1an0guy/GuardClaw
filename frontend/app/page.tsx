@@ -132,7 +132,6 @@ export default function DashboardPage() {
   const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
-  const [markingMemberId, setMarkingMemberId] = useState<string | null>(null);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -206,7 +205,6 @@ export default function DashboardPage() {
     try {
       await createSavedLocation(memberId, label);
       setSavedLocations(await getSavedLocations().catch(() => [] as SavedLocation[]));
-      setMarkingMemberId(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save location.");
     }
@@ -302,7 +300,7 @@ export default function DashboardPage() {
         </section>
 
         <section className="ops-panel area-map ops-map">
-          <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} />
+          <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
         </section>
 
         <section className="ops-panel area-members ops-members">
@@ -312,23 +310,6 @@ export default function DashboardPage() {
               <p key={member.id} onClick={() => setFocusedMemberId(member.id)}>
                 <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
                 <span>{routeLine(member, notificationIntents)}</span>
-                <span className="member-mark-row">
-                  <button
-                    className="mark-location-btn"
-                    onClick={(e) => { e.stopPropagation(); setMarkingMemberId(markingMemberId === member.id ? null : member.id); }}
-                    title="Mark location"
-                    type="button"
-                  >📍</button>
-                  {markingMemberId === member.id ? (
-                    <span className="mark-location-menu">
-                      {["home", "school", "work"].map((label) => (
-                        <button key={label} onClick={(e) => { e.stopPropagation(); handleMarkLocation(member.id, label); }} type="button">
-                          {label === "home" ? "🏠" : label === "school" ? "🏫" : "💼"} {label}
-                        </button>
-                      ))}
-                    </span>
-                  ) : null}
-                </span>
               </p>
             )) ?? <p className="muted-text">Loading household members...</p>}
           </div>
