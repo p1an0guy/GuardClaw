@@ -89,8 +89,8 @@ export function GpsMap({ members, savedLocations = [], focusedMemberId, onMarkLo
       }).setView(CAL_POLY_CENTER, 15);
       mapRef.current = map;
       L.control.zoom({ position: "bottomright" }).addTo(map);
-      L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
       markerLayerRef.current = L.layerGroup().addTo(map);
