@@ -71,7 +71,7 @@ button:disabled {
 }
 
 .display-serif {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .stagger-in {
@@ -111,11 +111,11 @@ button:disabled {
   grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.46fr) minmax(300px, 0.92fr);
   grid-template-areas:
     "alert alert summary"
-    "timeline map members"
-    "timeline cctv1 dispatch"
+    "chat map members"
+    "timeline cctv1 audit"
     "timeline cctv2 audit"
     "timeline cctv3 audit"
-    "timeline cctv4 chat";
+    "timeline cctv4 audit";
   gap: 14px;
   align-items: stretch;
 }
@@ -124,7 +124,7 @@ button:disabled {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 20px;
   background: var(--paper);
   color: var(--ink);
 }
@@ -149,10 +149,6 @@ button:disabled {
   grid-area: members;
 }
 
-.area-dispatch {
-  grid-area: dispatch;
-}
-
 .cctv-grid {
   grid-area: cctv-block;
   display: grid;
@@ -173,7 +169,7 @@ button:disabled {
 .ops-headline-panel {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   background: var(--paper);
   border-left: 4px solid var(--olive);
 }
@@ -183,9 +179,10 @@ button:disabled {
   max-width: calc(100% - 36px);
   margin: 16px 18px 0;
   border: 1px solid var(--line);
+  border-radius: 999px;
   background: var(--paper-2);
   color: var(--olive);
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.25;
@@ -204,7 +201,7 @@ button:disabled {
   display: block;
   margin: 0;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: clamp(1.8rem, 3.8vw, 3.4rem);
   font-weight: 700;
   line-height: 1.05;
@@ -228,7 +225,7 @@ button:disabled {
 .ops-dispatch button {
   min-height: 40px;
   border: 1px solid #243244;
-  border-radius: 0;
+  border-radius: 16px;
   font-weight: 800;
 }
 
@@ -338,8 +335,9 @@ button:disabled {
   align-items: start;
   margin-bottom: 8px;
   border: 1px solid var(--line);
+  border-radius: 14px;
   background: var(--paper-3);
-  padding: 10px;
+  padding: 12px 14px;
 }
 
 .timeline-entry h3,
@@ -417,7 +415,7 @@ button:disabled {
 .gps-map-canvas .leaflet-control-attribution {
   margin: 0 10px 8px 0;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 12px;
   background: rgba(16, 23, 32, 0.88);
   color: var(--muted);
   font-size: 0.62rem;
@@ -427,7 +425,7 @@ button:disabled {
 .gps-map-canvas .leaflet-control-zoom {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 12px;
 }
 
 .gps-map-canvas .leaflet-control-zoom a {
@@ -439,7 +437,7 @@ button:disabled {
 
 .gps-map-canvas .leaflet-popup-content-wrapper,
 .gps-map-canvas .leaflet-popup-tip {
-  border-radius: 0;
+  border-radius: 12px;
   background: var(--paper);
   color: var(--ink);
 }
@@ -827,37 +825,67 @@ button:disabled {
 
 .ops-chat {
   min-height: 270px;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .chat-window {
-  display: grid;
-  gap: 9px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .chat-bubble {
-  max-width: 92%;
+  max-width: 82%;
   margin: 0;
-  border: 1px solid var(--line);
-  background: var(--paper-3);
-  padding: 10px 12px;
+  border-radius: 16px;
+  padding: 10px 14px;
   font-size: 0.82rem;
+  line-height: 1.4;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
 }
 
 .chat-bubble.inbound {
-  justify-self: end;
-  background: rgba(79, 209, 197, 0.12);
+  align-self: flex-start;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
 }
 
-.chat-input {
+.chat-bubble.outbound {
+  align-self: flex-end;
+  background: var(--olive);
+  color: var(--paper);
+  border: none;
+}
+
+.chat-input-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-input-field {
+  flex: 1;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   background: var(--paper-2);
-  padding: 10px 12px;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 800;
+  color: var(--ink);
+  font-size: 0.85rem;
+  border-radius: 16px;
+  min-height: 40px;
+}
+
+.chat-input-field:focus {
+  outline: 2px solid var(--olive);
+  outline-offset: -2px;
 }
 
 .muted-text {
@@ -870,16 +898,15 @@ button:disabled {
     grid-template-areas:
       "alert"
       "summary"
+      "chat"
       "timeline"
       "map"
       "members"
-      "dispatch"
       "audit"
       "cctv1"
       "cctv2"
       "cctv3"
-      "cctv4"
-      "chat";
+      "cctv4";
   }
 
   .cctv-grid {
@@ -935,6 +962,9 @@ button:disabled {
 .area-audit {
   grid-area: audit;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .area-audit h2 {
@@ -957,9 +987,10 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 300px;
   overflow-y: auto;
   margin-top: 12px;
+  flex: 1;
+  min-height: 0;
 }
 
 .audit-entry {
@@ -967,15 +998,18 @@ button:disabled {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.4rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper-3);
 }
 
 .audit-source {
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--blue);
   color: var(--paper);
   letter-spacing: 0.05em;
@@ -985,7 +1019,7 @@ button:disabled {
   font-size: 0.65rem;
   font-weight: 600;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: 999px;
 }
 
 .sev-extreme { background: #7f0000; color: #fff; }
@@ -1047,7 +1081,7 @@ button:disabled {
 .incident-history-card {
   padding: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.02);
 }
 .incident-history-meta {
@@ -1067,3 +1101,4 @@ button:disabled {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
