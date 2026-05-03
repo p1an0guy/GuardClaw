@@ -334,6 +334,7 @@ class CreateScheduleRequest(BaseModel):
 
 class IncidentRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
+    family_id: str = ""
     event_id: str
     summary: str
     classification_level: str

@@ -53,6 +53,7 @@ async def run_alert_pipeline(
     affected = [{"member_id": m.id, "name": m.name, "risk_level": m.status.value} for m in household.members if m.id in proximity_ids]
     incident_record = IncidentRecord(
         id=incident_id,
+        family_id=settings.supabase_family_id,
         event_id=event.id,
         summary=summary_text,
         classification_level=classification.level.value,

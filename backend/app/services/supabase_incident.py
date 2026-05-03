@@ -37,6 +37,7 @@ class SupabaseIncidentService:
                 f"{self._base()}/rest/v1/incidents",
                 json={
                     "id": record.id,
+                    "family_id": record.family_id,
                     "event_id": record.event_id,
                     "summary": record.summary,
                     "classification_level": record.classification_level,
@@ -59,7 +60,7 @@ class SupabaseIncidentService:
         async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
             response = await client.get(
                 f"{self._base()}/rest/v1/incidents",
-                params={"order": "created_at.desc", "limit": "1"},
+                params={"order": "created_at.desc", "limit": "1", "family_id": f"eq.{self.settings.supabase_family_id}"},
             )
             response.raise_for_status()
             rows: list[dict[str, Any]] = response.json()
@@ -73,7 +74,7 @@ class SupabaseIncidentService:
         async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
             response = await client.get(
                 f"{self._base()}/rest/v1/incidents",
-                params={"order": "created_at.desc", "limit": str(limit)},
+                params={"order": "created_at.desc", "limit": str(limit), "family_id": f"eq.{self.settings.supabase_family_id}"},
             )
             response.raise_for_status()
             rows: list[dict[str, Any]] = response.json()
@@ -83,6 +84,7 @@ class SupabaseIncidentService:
     def _row_to_record(row: dict[str, Any]) -> IncidentRecord:
         return IncidentRecord(
             id=row["id"],
+            family_id=row.get("family_id", ""),
             event_id=row["event_id"],
             summary=row["summary"],
             classification_level=row["classification_level"],

@@ -218,6 +218,7 @@ end $$;
 
 create table if not exists incidents (
   id uuid primary key default gen_random_uuid(),
+  family_id uuid references families(id),
   event_id text not null,
   summary text not null,
   classification_level text not null,

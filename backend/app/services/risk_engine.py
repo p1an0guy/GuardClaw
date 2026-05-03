@@ -32,7 +32,7 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 def _members_in_radius(household: HouseholdState, event: ThreatEvent, radius_km: float) -> list[str]:
     if event.latitude is None or event.longitude is None:
-        return []
+        return [m.id for m in household.members]
     result: list[str] = []
     for member in household.members:
         if member.location is None:
@@ -151,18 +151,28 @@ def _affected_people(household: HouseholdState, proximity_member_ids: list[str],
     already_ids = {a.member_id for a in affected}
     for member in sorted(household.members, key=lambda item: item.priority):
         if member.id in proximity_member_ids and member.id not in already_ids and member.location is not None:
-            dist = _haversine_km(
-                member.location.latitude, member.location.longitude,
-                event.latitude, event.longitude,  # type: ignore[arg-type]
-            )
-            affected.append(
-                AffectedPerson(
-                    member_id=member.id,
-                    name=member.name,
-                    risk_level="proximity",
-                    reason=f"Member is within {dist:.1f} km of the alert area.",
+            if event.latitude is None or event.longitude is None:
+                affected.append(
+                    AffectedPerson(
+                        member_id=member.id,
+                        name=member.name,
+                        risk_level="proximity",
+                        reason="Member is in the household affected by this alert.",
+                    )
                 )
-            )
+            else:
+                dist = _haversine_km(
+                    member.location.latitude, member.location.longitude,
+                    event.latitude, event.longitude,
+                )
+                affected.append(
+                    AffectedPerson(
+                        member_id=member.id,
+                        name=member.name,
+                        risk_level="proximity",
+                        reason=f"Member is within {dist:.1f} km of the alert area.",
+                    )
+                )
     return affected
 
 
