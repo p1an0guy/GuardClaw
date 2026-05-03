@@ -13,6 +13,10 @@ NWS_SLO_POINT = "35.2828,-120.6596"
 
 class AlertSourceService:
     async def create_event(self, request: SimulateEventRequest) -> ThreatEvent:
+        if request.demo_scenario:
+            scenario_event = self._scenario_fixture(request.demo_scenario, request.location_label)
+            if scenario_event is not None:
+                return scenario_event
         if request.live and request.source == SourceKind.NWS:
             live_event = await self._try_live_nws(request.location_label)
             if live_event is not None:
@@ -23,6 +27,42 @@ class AlertSourceService:
                 return archived_event
 
         return self._fixture_for(request.source, request.location_label)
+
+    def _scenario_fixture(self, scenario: str, location_label: str) -> ThreatEvent | None:
+        if scenario != "cal_poly_ipaws_school_shelter":
+            return None
+
+        return ThreatEvent(
+            id=new_id("event"),
+            event_type="school_shooter_shelter_in_place",
+            title="IPAWS School Shooter Shelter-in-Place Alert: Cal Poly SLO",
+            description=(
+                "Authorities have issued a shelter-in-place alert for the Cal Poly San Luis Obispo campus. "
+                "People in the affected area should move indoors, lock doors, silence phones, avoid windows, "
+                "and wait for official all-clear instructions."
+            ),
+            severity=Severity.EXTREME,
+            location_label="Cal Poly, San Luis Obispo, CA",
+            issued_at=utc_now(),
+            source_kind=SourceKind.IPAWS,
+            source_name="FEMA IPAWS All-Hazards Feed replay",
+            source_url="https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system",
+            is_live=False,
+            is_simulated=True,
+            demo_mode=True,
+            latitude=35.3004,
+            longitude=-120.6625,
+            raw={
+                "fixture": True,
+                "scenario": scenario,
+                "requested_location_label": location_label,
+                "source": SourceKind.IPAWS.value,
+                "source_freshness": "replay",
+                "cap_event_code": "ShelterInPlace",
+                "cap_category": "Safety",
+                "cap_response_type": "Shelter",
+            },
+        )
 
     async def _try_live_nws(self, location_label: str) -> ThreatEvent | None:
         url = "https://api.weather.gov/alerts/active"

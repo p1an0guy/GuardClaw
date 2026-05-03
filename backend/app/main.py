@@ -49,6 +49,7 @@ from app.services.supabase_incident import SupabaseIncidentService
 
 audit_service = SupabaseAuditService(settings)
 incident_service = SupabaseIncidentService(settings)
+logger = logging.getLogger("uvicorn")
 
 
 @asynccontextmanager
@@ -94,6 +95,28 @@ async def simulate_event(
 ) -> ActiveIncidentResponse:
     payload = request or SimulateEventRequest()
     event = await AlertSourceService().create_event(payload)
+    try:
+        await audit_service.add_entry(
+            AlertAuditEntry(
+                source_kind=event.source_kind,
+                source_id=event.id,
+                event_type=event.event_type,
+                severity=event.severity,
+                title=event.title,
+                pipeline_triggered=True,
+                raw={
+                    **event.raw,
+                    "is_live": event.is_live,
+                    "is_simulated": event.is_simulated,
+                    "demo_mode": event.demo_mode,
+                    "requested_live": payload.live,
+                    "requested_source": payload.source.value,
+                    "demo_scenario": payload.demo_scenario,
+                },
+            )
+        )
+    except Exception as exc:
+        logger.warning("simulate_event audit entry failed: %s", exc)
     return await run_alert_pipeline(
         event,
         store,

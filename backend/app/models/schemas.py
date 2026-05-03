@@ -242,6 +242,7 @@ class SimulateEventRequest(BaseModel):
     location_label: str = "San Luis Obispo, CA"
     include_camera: bool = True
     camera_scenario: str = "front_walkway"
+    demo_scenario: str | None = None
 
 
 class ActiveIncidentResponse(BaseModel):

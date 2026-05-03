@@ -15,6 +15,7 @@ class SupabaseAuditService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._seen: set[tuple[str, str]] = set()  # in-memory dedup cache
+        self._local_entries: dict[tuple[str, str], AlertAuditEntry] = {}
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -38,12 +39,16 @@ class SupabaseAuditService:
         if not self._configured():
             logger.warning("SupabaseAudit bootstrap: skipped (not configured)")
             return
-        async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
-            response = await client.get(
-                f"{self._base()}/rest/v1/alert_audit_log",
-                params={"select": "source_kind,source_id"},
-            )
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
+                response = await client.get(
+                    f"{self._base()}/rest/v1/alert_audit_log",
+                    params={"select": "source_kind,source_id"},
+                )
+                response.raise_for_status()
+        except Exception as exc:
+            logger.warning("SupabaseAudit bootstrap: unavailable, using local cache: %s", exc)
+            return
         for row in response.json():
             self._seen.add((row["source_kind"], row["source_id"]))
         logger.info("SupabaseAudit bootstrap: complete, loaded %d seen entries", len(self._seen))
@@ -53,41 +58,58 @@ class SupabaseAuditService:
         if not self._configured():
             logger.debug("SupabaseAudit: not configured, caching locally source_id=%s", entry.source_id)
             self._seen.add(key)
+            self._local_entries[key] = entry
             return
-        async with httpx.AsyncClient(timeout=8, headers={**self._headers(), "Prefer": "return=minimal,resolution=ignore-duplicates"}) as client:
-            response = await client.post(
-                f"{self._base()}/rest/v1/alert_audit_log",
-                json={
-                    "id": entry.id,
-                    "source_kind": entry.source_kind.value,
-                    "source_id": entry.source_id,
-                    "event_type": entry.event_type,
-                    "severity": entry.severity.value,
-                    "title": entry.title,
-                    "ingested_at": entry.ingested_at.isoformat(),
-                    "pipeline_triggered": entry.pipeline_triggered,
-                    "raw": entry.raw,
-                },
-            )
-            if response.status_code == 200 or response.status_code == 201:
-                logger.info("SupabaseAudit: inserted source_kind=%s source_id=%s title=%r", entry.source_kind.value, entry.source_id, entry.title)
-            elif response.status_code == 204:
-                logger.info("SupabaseAudit: skipped (duplicate) source_kind=%s source_id=%s", entry.source_kind.value, entry.source_id)
-            elif not response.is_success:
-                logger.error("SupabaseAudit: insert failed status=%s body=%s", response.status_code, response.text[:300])
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=8, headers={**self._headers(), "Prefer": "return=minimal,resolution=ignore-duplicates"}) as client:
+                response = await client.post(
+                    f"{self._base()}/rest/v1/alert_audit_log",
+                    json={
+                        "id": entry.id,
+                        "source_kind": entry.source_kind.value,
+                        "source_id": entry.source_id,
+                        "event_type": entry.event_type,
+                        "severity": entry.severity.value,
+                        "title": entry.title,
+                        "ingested_at": entry.ingested_at.isoformat(),
+                        "pipeline_triggered": entry.pipeline_triggered,
+                        "raw": entry.raw,
+                    },
+                )
+                if response.status_code == 200 or response.status_code == 201:
+                    logger.info("SupabaseAudit: inserted source_kind=%s source_id=%s title=%r", entry.source_kind.value, entry.source_id, entry.title)
+                elif response.status_code == 204:
+                    logger.info("SupabaseAudit: skipped (duplicate) source_kind=%s source_id=%s", entry.source_kind.value, entry.source_id)
+                elif not response.is_success:
+                    logger.error("SupabaseAudit: insert failed status=%s body=%s", response.status_code, response.text[:300])
+                response.raise_for_status()
+        except Exception as exc:
+            logger.warning("SupabaseAudit: unavailable, caching locally source_id=%s: %s", entry.source_id, exc)
+            self._local_entries[key] = entry
         self._seen.add(key)
 
     async def list_entries(self) -> list[AlertAuditEntry]:
         if not self._configured():
-            return []
-        async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
-            response = await client.get(
-                f"{self._base()}/rest/v1/alert_audit_log",
-                params={"order": "ingested_at.desc", "limit": "100"},
+            return sorted(
+                self._local_entries.values(),
+                key=lambda entry: entry.ingested_at,
+                reverse=True,
             )
-            response.raise_for_status()
-            rows: list[dict[str, Any]] = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=8, headers=self._headers()) as client:
+                response = await client.get(
+                    f"{self._base()}/rest/v1/alert_audit_log",
+                    params={"order": "ingested_at.desc", "limit": "100"},
+                )
+                response.raise_for_status()
+                rows: list[dict[str, Any]] = response.json()
+        except Exception as exc:
+            logger.warning("SupabaseAudit list_entries: unavailable, using local cache: %s", exc)
+            return sorted(
+                self._local_entries.values(),
+                key=lambda entry: entry.ingested_at,
+                reverse=True,
+            )
 
         return [
             AlertAuditEntry(
