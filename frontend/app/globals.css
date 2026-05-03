@@ -153,12 +153,18 @@ button:disabled {
   grid-area: dispatch;
 }
 
+.area-cctv-block {
+  grid-column: 2;
+  grid-row: 3 / span 4;
+}
+
 .cctv-grid {
-  grid-area: cctv-block;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 14px;
+  align-content: start;
+  min-height: 0;
 }
 
 .cctv-grid .ops-panel {
@@ -873,13 +879,15 @@ button:disabled {
       "timeline"
       "map"
       "members"
+      "cctv-block"
       "dispatch"
       "audit"
-      "cctv1"
-      "cctv2"
-      "cctv3"
-      "cctv4"
       "chat";
+  }
+
+  .area-cctv-block {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .cctv-grid {

@@ -433,10 +433,12 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
-        <CctvPanel label="CCTV 2" />
-        <CctvPanel label="CCTV 3" />
-        <CctvPanel label="CCTV 4" />
+        <div className="cctv-grid area-cctv-block">
+          <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
+          <CctvPanel label="CCTV 2" />
+          <CctvPanel label="CCTV 3" />
+          <CctvPanel label="CCTV 4" />
+        </div>
 
         <section className="ops-panel area-chat ops-chat">
           <h2>Live chat with GuardClaw</h2>
