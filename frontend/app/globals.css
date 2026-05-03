@@ -116,6 +116,7 @@ button:disabled {
     "timeline cctv-block audit";
   gap: 14px;
   align-items: stretch;
+  height: 100vh;
 }
 
 .ops-panel {
