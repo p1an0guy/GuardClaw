@@ -229,13 +229,13 @@ export default function DashboardPage() {
       {error ? <div className="ops-error">{error}</div> : null}
 
       <div className="ops-grid">
-        <section className="ops-panel area-alert ops-headline-panel">
+        <section className="ops-panel area-alert ops-headline-panel headline-clickable" onClick={() => setShowHistory(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") setShowHistory(true); }}>
           <div className="incident-pill">
             {incident
               ? `${sourceFreshness(active)} • ${classification?.level.replaceAll("_", " ").toUpperCase() ?? incident.severity.toUpperCase()} • ${formatTimestamp(incident.issued_at)}`
               : `DEMO MODE • ${loading ? "LOADING" : "NO ACTIVE INCIDENT"}`}
           </div>
-          <div className="headline-wrap" onClick={() => setShowHistory(true)} style={{ cursor: "pointer" }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") setShowHistory(true); }}>
+          <div className="headline-wrap">
             <div className="headline-ticker-wrap" aria-live="polite">
               <p className="headline-ticker">
                 {incident ? incident.title.toUpperCase() : "ACTIVE ALERT HEADLINER"}

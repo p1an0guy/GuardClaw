@@ -176,6 +176,20 @@ button:disabled {
   border-left: 4px solid var(--olive);
 }
 
+.headline-clickable {
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.headline-clickable:hover {
+  background: var(--paper-2);
+  border-color: var(--olive);
+}
+
+.headline-clickable:hover .headline-ticker {
+  color: var(--olive);
+}
+
 .incident-pill {
   width: fit-content;
   max-width: calc(100% - 36px);
@@ -1051,11 +1065,12 @@ button:disabled {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 .modal-container {
-  background: var(--panel-bg, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: #101720;
+  border: 1px solid #1D2A3A;
+  border-radius: 24px;
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
@@ -1066,41 +1081,46 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #1D2A3A;
 }
 .modal-header h2 {
   margin: 0;
   font-size: 1.1rem;
+  font-weight: 800;
 }
 .modal-body {
-  padding: 1rem 1.25rem;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 .incident-history-card {
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.02);
+  padding: 1rem 1.25rem;
+  border: 1px solid #1D2A3A;
+  border-radius: 18px;
+  background: #192331;
+}
+.incident-history-card:hover {
+  border-color: #4FD1C5;
 }
 .incident-history-meta {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
 }
 .incident-history-level {
   font-size: 0.75rem;
-  font-weight: 600;
-  opacity: 0.8;
+  font-weight: 700;
+  color: #CBD5E1;
 }
 .incident-history-summary {
   margin: 0.25rem 0;
   font-size: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.5;
+  color: #F3F7FB;
 }
 
