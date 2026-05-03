@@ -296,6 +296,16 @@ class CameraAlertSchedule(BaseModel):
     created_at: datetime
 
 
+class SavedLocation(BaseModel):
+    id: str
+    family_id: str
+    member_id: str
+    label: str
+    lat: float
+    lng: float
+    created_at: str
+
+
 class CreateCameraRequest(BaseModel):
     label: str
     location_label: str

@@ -5,6 +5,7 @@ import type {
   Camera,
   CameraAlertSchedule,
   HouseholdState,
+  SavedLocation,
   SourceKind,
   TimelineEntry
 } from "./types";
@@ -60,6 +61,10 @@ export function acknowledgeAction(targetId: string): Promise<AcknowledgeResponse
 
 export function getAuditLog(): Promise<AlertAuditEntry[]> {
   return requestJson<AlertAuditEntry[]>("/api/alerts/audit-log");
+}
+
+export function getSavedLocations(): Promise<SavedLocation[]> {
+  return requestJson<SavedLocation[]>("/api/saved-locations");
 }
 
 export function getCameras(): Promise<Camera[]> {

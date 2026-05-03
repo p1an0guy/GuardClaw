@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getSavedLocations, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
@@ -12,6 +12,7 @@ import type {
   HouseholdMember,
   HouseholdState,
   NotificationIntent,
+  SavedLocation,
   SourceKind,
   TimelineEntry
 } from "@/lib/types";
@@ -129,6 +130,8 @@ export default function DashboardPage() {
   const [active, setActive] = useState<ActiveIncidentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -143,16 +146,18 @@ export default function DashboardPage() {
   const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse, auditLogResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse, auditLogResponse, savedLocationsResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
       getTimeline(),
-      getAuditLog()
+      getAuditLog(),
+      getSavedLocations().catch(() => [] as SavedLocation[]),
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
     setTimeline(timelineResponse);
     setAuditLog(auditLogResponse);
+    setSavedLocations(savedLocationsResponse);
   }
 
   useEffect(() => {
@@ -286,14 +291,14 @@ export default function DashboardPage() {
         </section>
 
         <section className="ops-panel area-map ops-map">
-          <GpsMap members={household?.members ?? []} />
+          <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} />
         </section>
 
         <section className="ops-panel area-members ops-members">
           <h2>Member status</h2>
           <div className="member-lines">
             {household?.members.map((member, index) => (
-              <p key={member.id}>
+              <p key={member.id} onClick={() => setFocusedMemberId(member.id)}>
                 <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
                 <span>{routeLine(member, notificationIntents)}</span>
               </p>

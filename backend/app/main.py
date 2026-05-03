@@ -19,6 +19,7 @@ from app.models.schemas import (
     CreateCameraRequest,
     CreateScheduleRequest,
     HouseholdState,
+    SavedLocation,
     SimulateEventRequest,
     TimelineEntry,
     UpdateCameraRequest,
@@ -113,6 +114,11 @@ async def get_timeline() -> list[TimelineEntry]:
 @app.get("/api/alerts/audit-log", response_model=list[AlertAuditEntry])
 async def get_audit_log() -> list[AlertAuditEntry]:
     return await audit_service.list_entries()
+
+
+@app.get("/api/saved-locations", response_model=list[SavedLocation])
+async def get_saved_locations() -> list[SavedLocation]:
+    return await SupabaseHouseholdService(settings).get_saved_locations()
 
 
 @app.get("/api/cameras", response_model=list[Camera])

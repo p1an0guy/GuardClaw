@@ -16,6 +16,7 @@ from app.models.schemas import (
     MemberLocationSource,
     MemberRole,
     MemberStatus,
+    SavedLocation,
 )
 
 
@@ -63,6 +64,43 @@ class SupabaseHouseholdService:
             ),
             updated_at=datetime.now(timezone.utc),
         )
+
+    async def get_saved_locations(self) -> list[SavedLocation]:
+        if not (self.settings.supabase_url and self.settings.supabase_key and self.settings.supabase_family_id):
+            return []
+        headers = {
+            "apikey": self.settings.supabase_key,
+            "Authorization": f"Bearer {self.settings.supabase_key}",
+        }
+        base = self.settings.supabase_url.rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=8, headers=headers) as client:
+                response = await client.get(
+                    f"{base}/rest/v1/saved_locations",
+                    params={
+                        "family_id": f"eq.{self.settings.supabase_family_id}",
+                        "select": "*",
+                    },
+                )
+                if response.status_code >= 400:
+                    return []
+                data = response.json()
+                if not isinstance(data, list):
+                    return []
+                return [
+                    SavedLocation(
+                        id=str(row.get("id", "")),
+                        family_id=str(row.get("family_id", "")),
+                        member_id=str(row.get("member_id", "")),
+                        label=str(row.get("label", "")),
+                        lat=float(row.get("lat", 0)),
+                        lng=float(row.get("lng", 0)),
+                        created_at=str(row.get("created_at", "")),
+                    )
+                    for row in data
+                ]
+        except Exception:
+            return []
 
     async def _fetch_members(self, client: httpx.AsyncClient, base: str) -> list[dict[str, Any]]:
         response = await client.get(
