@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
 import { IncidentHistoryModal } from "@/components/IncidentHistoryModal";
-import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getHousehold, getLatestIncident, getSavedLocations, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getHousehold, getLatestIncident, getSavedLocations, getTimeline } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
@@ -13,18 +12,9 @@ import type {
   HouseholdMember,
   HouseholdState,
   IncidentRecord,
-  NotificationIntent,
   SavedLocation,
-  SourceKind,
   TimelineEntry
 } from "@/lib/types";
-
-const sourceOptions: Array<{ value: SourceKind; label: string }> = [
-  { value: "nws", label: "NWS replay" },
-  { value: "ipaws", label: "FEMA IPAWS replay" },
-  { value: "slo_county", label: "SLO County replay" },
-  { value: "cal_poly", label: "Cal Poly replay" }
-];
 
 function formatTimestamp(value?: string | null): string {
   if (!value) {
@@ -42,14 +32,6 @@ function memberStatusLine(member: HouseholdMember): string {
   const speed = member.location?.speed_mps != null ? ` • ${Math.round(member.location.speed_mps * 2.237)} mph` : "";
   const mobile = member.mobile_status ? ` • mobile: ${member.mobile_status}` : "";
   return `${member.name}: ${member.status.replaceAll("_", " ").toUpperCase()}${speed}${mobile}`;
-}
-
-function routeLine(member: HouseholdMember, intents: NotificationIntent[]): string {
-  const intent = intents.find((item) => item.member_id === member.id);
-  if (!intent) {
-    return "No alert route for current classification";
-  }
-  return `${intent.channel.toUpperCase()} • ${intent.reason}`;
 }
 
 function statusColorWeb(status: string): string {
@@ -102,11 +84,13 @@ function CctvPanel({
   videoSrc,
   signal,
   featured = false,
+  onClick,
 }: {
   label: string;
   videoSrc?: string;
   signal?: CameraSignal | null;
   featured?: boolean;
+  onClick?: () => void;
 }) {
   const areaClass = "";
   const cameraNumber = label.replace("CCTV ", "");
@@ -120,7 +104,7 @@ function CctvPanel({
     }));
   }, []);
   return (
-    <section className={`ops-panel ${areaClass}`}>
+    <section className={`ops-panel ${areaClass}`} onClick={onClick} style={onClick ? { cursor: "pointer" } : undefined}>
       <video
         aria-label={`${label} feed`}
         autoPlay
@@ -155,18 +139,19 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
-  const [source, setSource] = useState<SourceKind>("nws");
-  const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [simulating, setSimulating] = useState(false);
   const [ackId, setAckId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [chatMessages, setChatMessages] = useState<Array<{role: string; content: string}>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
 
   const incident = active?.incident ?? null;
   const plan = active?.action_plan ?? null;
   const classification = active?.classification ?? plan?.classification ?? null;
   const cameraSignal = active?.camera_signal ?? plan?.camera_signal ?? null;
-  const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
     const [householdResponse, activeResponse, timelineResponse, auditLogResponse, incidentResponse, savedLocationsResponse] = await Promise.all([
@@ -198,23 +183,6 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  async function handleSimulate() {
-    setError(null);
-    setSimulating(true);
-    try {
-      const response = await simulateEvent(source, live);
-      setActive(response);
-      const [householdResponse, timelineResponse] = await Promise.all([getHousehold(), getTimeline()]);
-      setHousehold(householdResponse);
-      setTimeline(timelineResponse);
-      getLatestIncident().then(setLatestIncident);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Simulation failed.");
-    } finally {
-      setSimulating(false);
-    }
-  }
-
   async function handleAcknowledge(id: string) {
     setAckId(id);
     try {
@@ -236,12 +204,35 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleChatSend(e: React.FormEvent) {
+    e.preventDefault();
+    const msg = chatInput.trim();
+    if (!msg) return;
+    const updated = [...chatMessages, { role: "user", content: msg }];
+    setChatMessages(updated);
+    setChatInput("");
+    setChatSending(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, history: updated.slice(0, -1) }),
+      });
+      const data = await res.json();
+      setChatMessages([...updated, { role: "assistant", content: data.reply }]);
+    } catch {
+      setChatMessages([...updated, { role: "assistant", content: "Failed to reach GuardClaw. Please try again." }]);
+    } finally {
+      setChatSending(false);
+    }
+  }
+
   return (
     <main className="ops-shell">
       {error ? <div className="ops-error">{error}</div> : null}
 
       <div className="ops-grid">
-        <section className="ops-panel area-alert ops-headline-panel">
+        <section className="ops-panel area-alert ops-headline-panel headline-clickable" onClick={() => setShowHistory(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") setShowHistory(true); }}>
           <div className="incident-pill">
             {incident
               ? `${sourceFreshness(active)} • ${classification?.level.replaceAll("_", " ").toUpperCase() ?? incident.severity.toUpperCase()} • ${formatTimestamp(incident.issued_at)}`
@@ -252,37 +243,6 @@ export default function DashboardPage() {
               <p className="headline-ticker">
                 {incident ? incident.title.toUpperCase() : "ACTIVE ALERT HEADLINER"}
               </p>
-            </div>
-            <div className="headline-controls">
-              <select
-                aria-label="Replay source"
-                className="ops-select"
-                value={source}
-                onChange={(event) => setSource(event.target.value as SourceKind)}
-              >
-                {sourceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <label className="ops-toggle">
-                <input
-                  checked={live}
-                  onChange={(event) => setLive(event.target.checked)}
-                  type="checkbox"
-                />
-                Live/official
-              </label>
-              <button className="ops-button" disabled={simulating} onClick={handleSimulate}>
-                {simulating ? "Classifying..." : "Run alert"}
-              </button>
-              <Link className="ops-button" href="/cameras" style={{ textDecoration: "none" }}>
-                Manage Cameras
-              </Link>
-              <button className="ops-button" onClick={() => setShowHistory(true)}>
-                Incident History
-              </button>
             </div>
           </div>
         </section>
@@ -350,7 +310,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="ops-panel area-map ops-map">
+        <section className="ops-panel area-map ops-map" onClick={() => setExpandedPanel("map")} style={{ cursor: "pointer" }}>
           <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
         </section>
 
@@ -394,23 +354,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="ops-panel area-dispatch ops-dispatch">
-          <h2>Hermes routing</h2>
-          {notificationIntents.length > 0 ? (
-            notificationIntents.map((intent) => (
-              <button key={intent.id}>
-                {intent.member_name} • {intent.channel}
-              </button>
-            ))
-          ) : (
-            <>
-              <button>Telegram route pending</button>
-              <button>Call route pending</button>
-            </>
-          )}
-          <p>Hermes handles Telegram and outbound calls. Backend validates classification and logs each result.</p>
-        </section>
-
         <section className="ops-panel area-audit">
           <h2>Alert audit log</h2>
           <div className="audit-list">
@@ -434,25 +377,58 @@ export default function DashboardPage() {
         </section>
 
         <div className="cctv-grid area-cctv-block">
-          <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
-          <CctvPanel label="CCTV 2" />
-          <CctvPanel label="CCTV 3" />
-          <CctvPanel label="CCTV 4" />
+          <CctvPanel featured label="CCTV 1" signal={cameraSignal} onClick={() => setExpandedPanel("cctv1")} />
+          <CctvPanel label="CCTV 2" onClick={() => setExpandedPanel("cctv2")} />
+          <CctvPanel label="CCTV 3" onClick={() => setExpandedPanel("cctv3")} />
+          <CctvPanel label="CCTV 4" onClick={() => setExpandedPanel("cctv4")} />
         </div>
 
         <section className="ops-panel area-chat ops-chat">
-          <h2>Live chat with GuardClaw</h2>
+          <h2>Chat with GuardClaw</h2>
           <div className="chat-window">
-            <p className="chat-bubble">
-              Telegram is the active communication surface. Use the GuardClaw Hermes profile for the real chat demo.
-            </p>
-            <p className="chat-bubble inbound">Dashboard chat composer placeholder.</p>
+            {chatMessages.length === 0 ? (
+              <p className="chat-bubble">Ask me about active alerts, family status, or what to do next.</p>
+            ) : (
+              chatMessages.map((msg, i) => (
+                <p key={i} className={`chat-bubble ${msg.role === "user" ? "outbound" : "inbound"}`}>
+                  {msg.content}
+                </p>
+              ))
+            )}
           </div>
-          <div className="chat-input">Message input disabled for MVP</div>
+          <form className="chat-input-form" onSubmit={handleChatSend}>
+            <input
+              className="chat-input-field"
+              placeholder="Type a message..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              disabled={chatSending}
+            />
+            <button className="ops-button" type="submit" disabled={chatSending || !chatInput.trim()}>
+              {chatSending ? "..." : "Send"}
+            </button>
+          </form>
         </section>
       </div>
 
       {showHistory && <IncidentHistoryModal onClose={() => setShowHistory(false)} />}
+
+      {expandedPanel && (
+        <div className="modal-overlay" onClick={() => setExpandedPanel(null)}>
+          <div className="expanded-panel-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="expanded-panel-close" onClick={() => setExpandedPanel(null)}>✕</button>
+            {expandedPanel === "map" ? (
+              <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
+            ) : (
+              <CctvPanel
+                label={`CCTV ${expandedPanel.replace("cctv", "")}`}
+                signal={expandedPanel === "cctv1" ? cameraSignal : undefined}
+                featured={expandedPanel === "cctv1"}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

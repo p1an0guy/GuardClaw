@@ -71,7 +71,7 @@ button:disabled {
 }
 
 .display-serif {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .stagger-in {
@@ -109,22 +109,19 @@ button:disabled {
 .ops-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.46fr) minmax(300px, 0.92fr);
+  grid-template-rows: auto auto auto;
   grid-template-areas:
     "alert alert summary"
-    "timeline map members"
-    "timeline cctv1 dispatch"
-    "timeline cctv2 audit"
-    "timeline cctv3 audit"
-    "timeline cctv4 chat";
+    "chat map members"
+    "timeline cctv-block audit";
   gap: 14px;
-  align-items: stretch;
 }
 
 .ops-panel {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 20px;
   background: var(--paper);
   color: var(--ink);
 }
@@ -149,13 +146,8 @@ button:disabled {
   grid-area: members;
 }
 
-.area-dispatch {
-  grid-area: dispatch;
-}
-
 .area-cctv-block {
-  grid-column: 2;
-  grid-row: 3 / span 4;
+  grid-area: cctv-block;
 }
 
 .cctv-grid {
@@ -179,9 +171,40 @@ button:disabled {
 .ops-headline-panel {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   background: var(--paper);
   border-left: 4px solid var(--olive);
+}
+
+.headline-clickable {
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+}
+
+.headline-clickable::after {
+  content: "Click to view incident history";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 11, 16, 0.5);
+  backdrop-filter: blur(6px);
+  color: #4FD1C5;
+  font-size: 1rem;
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+.headline-clickable:hover::after {
+  opacity: 1;
+}
+
+.headline-clickable:hover {
+  border-color: var(--olive);
 }
 
 .incident-pill {
@@ -189,9 +212,10 @@ button:disabled {
   max-width: calc(100% - 36px);
   margin: 16px 18px 0;
   border: 1px solid var(--line);
+  border-radius: 999px;
   background: var(--paper-2);
   color: var(--olive);
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.25;
@@ -210,7 +234,7 @@ button:disabled {
   display: block;
   margin: 0;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: clamp(1.8rem, 3.8vw, 3.4rem);
   font-weight: 700;
   line-height: 1.05;
@@ -234,7 +258,7 @@ button:disabled {
 .ops-dispatch button {
   min-height: 40px;
   border: 1px solid #243244;
-  border-radius: 0;
+  border-radius: 16px;
   font-weight: 800;
 }
 
@@ -325,9 +349,20 @@ button:disabled {
 }
 
 .ops-timeline {
-  min-height: 620px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 520px;
+}
+
+.area-audit {
+  grid-area: audit;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 520px;
 }
 
 .timeline-list {
@@ -344,8 +379,9 @@ button:disabled {
   align-items: start;
   margin-bottom: 8px;
   border: 1px solid var(--line);
+  border-radius: 14px;
   background: var(--paper-3);
-  padding: 10px;
+  padding: 12px 14px;
 }
 
 .timeline-entry h3,
@@ -423,7 +459,7 @@ button:disabled {
 .gps-map-canvas .leaflet-control-attribution {
   margin: 0 10px 8px 0;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 12px;
   background: rgba(16, 23, 32, 0.88);
   color: var(--muted);
   font-size: 0.62rem;
@@ -433,7 +469,7 @@ button:disabled {
 .gps-map-canvas .leaflet-control-zoom {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 12px;
 }
 
 .gps-map-canvas .leaflet-control-zoom a {
@@ -445,7 +481,7 @@ button:disabled {
 
 .gps-map-canvas .leaflet-popup-content-wrapper,
 .gps-map-canvas .leaflet-popup-tip {
-  border-radius: 0;
+  border-radius: 12px;
   background: var(--paper);
   color: var(--ink);
 }
@@ -833,37 +869,67 @@ button:disabled {
 
 .ops-chat {
   min-height: 270px;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .chat-window {
-  display: grid;
-  gap: 9px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .chat-bubble {
-  max-width: 92%;
+  max-width: 82%;
   margin: 0;
-  border: 1px solid var(--line);
-  background: var(--paper-3);
-  padding: 10px 12px;
+  border-radius: 16px;
+  padding: 10px 14px;
   font-size: 0.82rem;
+  line-height: 1.4;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
 }
 
 .chat-bubble.inbound {
-  justify-self: end;
-  background: rgba(79, 209, 197, 0.12);
+  align-self: flex-start;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
 }
 
-.chat-input {
+.chat-bubble.outbound {
+  align-self: flex-end;
+  background: var(--olive);
+  color: var(--paper);
+  border: none;
+}
+
+.chat-input-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-input-field {
+  flex: 1;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   background: var(--paper-2);
-  padding: 10px 12px;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 800;
+  color: var(--ink);
+  font-size: 0.85rem;
+  border-radius: 16px;
+  min-height: 40px;
+}
+
+.chat-input-field:focus {
+  outline: 2px solid var(--olive);
+  outline-offset: -2px;
 }
 
 .muted-text {
@@ -876,18 +942,12 @@ button:disabled {
     grid-template-areas:
       "alert"
       "summary"
+      "chat"
       "timeline"
       "map"
       "members"
       "cctv-block"
-      "dispatch"
-      "audit"
-      "chat";
-  }
-
-  .area-cctv-block {
-    grid-column: auto;
-    grid-row: auto;
+      "audit";
   }
 
   .cctv-grid {
@@ -940,11 +1000,6 @@ button:disabled {
   }
 }
 
-.area-audit {
-  grid-area: audit;
-  padding: 16px;
-}
-
 .area-audit h2 {
   margin: 0 0 4px;
   color: var(--ink);
@@ -965,9 +1020,10 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 300px;
   overflow-y: auto;
   margin-top: 12px;
+  flex: 1;
+  min-height: 0;
 }
 
 .audit-entry {
@@ -975,15 +1031,18 @@ button:disabled {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.4rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper-3);
 }
 
 .audit-source {
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--blue);
   color: var(--paper);
   letter-spacing: 0.05em;
@@ -993,7 +1052,7 @@ button:disabled {
   font-size: 0.65rem;
   font-weight: 600;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: 999px;
 }
 
 .sev-extreme { background: #7f0000; color: #fff; }
@@ -1023,11 +1082,12 @@ button:disabled {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 .modal-container {
-  background: var(--panel-bg, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: #101720;
+  border: 1px solid #1D2A3A;
+  border-radius: 24px;
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
@@ -1038,40 +1098,97 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #1D2A3A;
 }
 .modal-header h2 {
   margin: 0;
   font-size: 1.1rem;
+  font-weight: 800;
 }
 .modal-body {
-  padding: 1rem 1.25rem;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 .incident-history-card {
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  padding: 1rem 1.25rem;
+  border: 1px solid #1D2A3A;
+  border-radius: 18px;
+  background: #192331;
+}
+.incident-history-card:hover {
+  border-color: #4FD1C5;
 }
 .incident-history-meta {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
 }
 .incident-history-level {
   font-size: 0.75rem;
-  font-weight: 600;
-  opacity: 0.8;
+  font-weight: 700;
+  color: #CBD5E1;
 }
 .incident-history-summary {
   margin: 0.25rem 0;
   font-size: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.5;
+  color: #F3F7FB;
+}
+
+
+.expanded-panel-modal {
+  position: relative;
+  width: 90vw;
+  height: 80vh;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #101720;
+  border: 1px solid #1D2A3A;
+}
+
+.expanded-panel-modal .gps-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.expanded-panel-modal .ops-panel {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+}
+
+.expanded-panel-modal video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.expanded-panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #1D2A3A;
+  background: rgba(16, 23, 32, 0.9);
+  color: #F3F7FB;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expanded-panel-close:hover {
+  background: #4FD1C5;
+  color: #080B10;
 }
