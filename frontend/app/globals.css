@@ -1124,3 +1124,54 @@ button:disabled {
   color: #F3F7FB;
 }
 
+
+.expanded-panel-modal {
+  position: relative;
+  width: 90vw;
+  height: 80vh;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #101720;
+  border: 1px solid #1D2A3A;
+}
+
+.expanded-panel-modal .gps-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.expanded-panel-modal .ops-panel {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+}
+
+.expanded-panel-modal video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.expanded-panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #1D2A3A;
+  background: rgba(16, 23, 32, 0.9);
+  color: #F3F7FB;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expanded-panel-close:hover {
+  background: #4FD1C5;
+  color: #080B10;
+}

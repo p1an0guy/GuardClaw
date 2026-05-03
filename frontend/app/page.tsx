@@ -84,11 +84,13 @@ function CctvPanel({
   videoSrc,
   signal,
   featured = false,
+  onClick,
 }: {
   label: string;
   videoSrc?: string;
   signal?: CameraSignal | null;
   featured?: boolean;
+  onClick?: () => void;
 }) {
   const areaClass = "";
   const cameraNumber = label.replace("CCTV ", "");
@@ -102,7 +104,7 @@ function CctvPanel({
     }));
   }, []);
   return (
-    <section className={`ops-panel ${areaClass}`}>
+    <section className={`ops-panel ${areaClass}`} onClick={onClick} style={onClick ? { cursor: "pointer" } : undefined}>
       <video
         aria-label={`${label} feed`}
         autoPlay
@@ -144,6 +146,7 @@ export default function DashboardPage() {
   const [chatMessages, setChatMessages] = useState<Array<{role: string; content: string}>>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
 
   const incident = active?.incident ?? null;
   const plan = active?.action_plan ?? null;
@@ -307,7 +310,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="ops-panel area-map ops-map">
+        <section className="ops-panel area-map ops-map" onClick={() => setExpandedPanel("map")} style={{ cursor: "pointer" }}>
           <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
         </section>
 
@@ -374,10 +377,10 @@ export default function DashboardPage() {
         </section>
 
         <div className="cctv-grid area-cctv-block">
-          <CctvPanel featured label="CCTV 1" signal={cameraSignal} />
-          <CctvPanel label="CCTV 2" />
-          <CctvPanel label="CCTV 3" />
-          <CctvPanel label="CCTV 4" />
+          <CctvPanel featured label="CCTV 1" signal={cameraSignal} onClick={() => setExpandedPanel("cctv1")} />
+          <CctvPanel label="CCTV 2" onClick={() => setExpandedPanel("cctv2")} />
+          <CctvPanel label="CCTV 3" onClick={() => setExpandedPanel("cctv3")} />
+          <CctvPanel label="CCTV 4" onClick={() => setExpandedPanel("cctv4")} />
         </div>
 
         <section className="ops-panel area-chat ops-chat">
@@ -409,6 +412,23 @@ export default function DashboardPage() {
       </div>
 
       {showHistory && <IncidentHistoryModal onClose={() => setShowHistory(false)} />}
+
+      {expandedPanel && (
+        <div className="modal-overlay" onClick={() => setExpandedPanel(null)}>
+          <div className="expanded-panel-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="expanded-panel-close" onClick={() => setExpandedPanel(null)}>✕</button>
+            {expandedPanel === "map" ? (
+              <GpsMap focusedMemberId={focusedMemberId} members={household?.members ?? []} savedLocations={savedLocations} onMarkLocation={handleMarkLocation} />
+            ) : (
+              <CctvPanel
+                label={`CCTV ${expandedPanel.replace("cctv", "")}`}
+                signal={expandedPanel === "cctv1" ? cameraSignal : undefined}
+                featured={expandedPanel === "cctv1"}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
