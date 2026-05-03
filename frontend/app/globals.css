@@ -189,7 +189,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 11, 16, 0.7);
+  background: rgba(8, 11, 16, 0.5);
+  backdrop-filter: blur(6px);
   color: #4FD1C5;
   font-size: 1rem;
   font-weight: 800;
