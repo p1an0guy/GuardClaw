@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getSavedLocations, getTimeline, simulateEvent } from "@/lib/api";
+import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getHousehold, getSavedLocations, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
@@ -132,6 +132,7 @@ export default function DashboardPage() {
   const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
+  const [markingMemberId, setMarkingMemberId] = useState<string | null>(null);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -198,6 +199,16 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : "Acknowledgement failed.");
     } finally {
       setAckId(null);
+    }
+  }
+
+  async function handleMarkLocation(memberId: string, label: string) {
+    try {
+      await createSavedLocation(memberId, label);
+      setSavedLocations(await getSavedLocations().catch(() => [] as SavedLocation[]));
+      setMarkingMemberId(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save location.");
     }
   }
 
@@ -301,6 +312,23 @@ export default function DashboardPage() {
               <p key={member.id} onClick={() => setFocusedMemberId(member.id)}>
                 <strong>Member {index + 1}: {memberStatusLine(member)}</strong>
                 <span>{routeLine(member, notificationIntents)}</span>
+                <span className="member-mark-row">
+                  <button
+                    className="mark-location-btn"
+                    onClick={(e) => { e.stopPropagation(); setMarkingMemberId(markingMemberId === member.id ? null : member.id); }}
+                    title="Mark location"
+                    type="button"
+                  >📍</button>
+                  {markingMemberId === member.id ? (
+                    <span className="mark-location-menu">
+                      {["home", "school", "work"].map((label) => (
+                        <button key={label} onClick={(e) => { e.stopPropagation(); handleMarkLocation(member.id, label); }} type="button">
+                          {label === "home" ? "🏠" : label === "school" ? "🏫" : "💼"} {label}
+                        </button>
+                      ))}
+                    </span>
+                  ) : null}
+                </span>
               </p>
             )) ?? <p className="muted-text">Loading household members...</p>}
           </div>

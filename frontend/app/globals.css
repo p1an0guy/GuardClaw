@@ -561,7 +561,7 @@ button:disabled {
 .gps-map-recenter {
   position: absolute;
   bottom: 16px;
-  right: 16px;
+  left: 16px;
   z-index: 1;
   width: 48px;
   height: 48px;
@@ -613,6 +613,48 @@ button:disabled {
 
 .member-lines p:hover {
   border-color: var(--sage);
+}
+
+.member-mark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.mark-location-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.mark-location-btn:hover {
+  opacity: 1;
+}
+
+.mark-location-menu {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mark-location-menu button {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
+  text-transform: capitalize;
+  transition: background 0.15s;
+}
+
+.mark-location-menu button:hover {
+  background: var(--paper);
 }
 
 .member-lines strong {

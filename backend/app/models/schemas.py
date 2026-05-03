@@ -306,6 +306,11 @@ class SavedLocation(BaseModel):
     created_at: str
 
 
+class CreateSavedLocationRequest(BaseModel):
+    member_id: str
+    label: str  # home, school, work
+
+
 class CreateCameraRequest(BaseModel):
     label: str
     location_label: str

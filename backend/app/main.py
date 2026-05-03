@@ -17,6 +17,7 @@ from app.models.schemas import (
     Camera,
     CameraAlertSchedule,
     CreateCameraRequest,
+    CreateSavedLocationRequest,
     CreateScheduleRequest,
     HouseholdState,
     SavedLocation,
@@ -119,6 +120,15 @@ async def get_audit_log() -> list[AlertAuditEntry]:
 @app.get("/api/saved-locations", response_model=list[SavedLocation])
 async def get_saved_locations() -> list[SavedLocation]:
     return await SupabaseHouseholdService(settings).get_saved_locations()
+
+
+@app.post("/api/saved-locations", response_model=SavedLocation, status_code=201)
+async def create_saved_location(request: CreateSavedLocationRequest) -> SavedLocation:
+    from fastapi import HTTPException
+    result = await SupabaseHouseholdService(settings).create_saved_location(request.member_id, request.label)
+    if result is None:
+        raise HTTPException(status_code=400, detail="Could not save location. Member may not have GPS coordinates.")
+    return result
 
 
 @app.get("/api/cameras", response_model=list[Camera])

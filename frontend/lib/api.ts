@@ -67,6 +67,13 @@ export function getSavedLocations(): Promise<SavedLocation[]> {
   return requestJson<SavedLocation[]>("/api/saved-locations");
 }
 
+export function createSavedLocation(memberId: string, label: string): Promise<SavedLocation> {
+  return requestJson<SavedLocation>("/api/saved-locations", {
+    method: "POST",
+    body: JSON.stringify({ member_id: memberId, label }),
+  });
+}
+
 export function getCameras(): Promise<Camera[]> {
   return requestJson<Camera[]>("/api/cameras");
 }
