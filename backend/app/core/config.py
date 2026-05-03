@@ -58,6 +58,8 @@ class Settings:
         "GUARDCLAW_CCTV_VIDEO_BASE_PATH",
         str(Path(__file__).resolve().parents[3] / "frontend" / "public" / "cctv"),
     )
+    ipaws_poller_enabled: bool = _bool_env("GUARDCLAW_IPAWS_POLLER_ENABLED", False)
+    usgs_poller_enabled: bool = _bool_env("GUARDCLAW_USGS_POLLER_ENABLED", False)
 
     def __post_init__(self) -> None:
         if self.cors_origins is None:
