@@ -4,6 +4,7 @@ import type {
   AlertAuditEntry,
   Camera,
   CameraAlertSchedule,
+  EmergencyContact,
   HouseholdState,
   IncidentRecord,
   SavedLocation,
@@ -109,4 +110,23 @@ export function createCameraSchedule(cameraId: string, data: { day_of_week: numb
 
 export function deleteCameraSchedule(cameraId: string, scheduleId: string): Promise<void> {
   return requestJson<void>(`/api/cameras/${cameraId}/schedules/${scheduleId}`, { method: "DELETE" });
+}
+
+export function getEmergencyContacts(): Promise<EmergencyContact[]> {
+  return requestJson<EmergencyContact[]>("/api/emergency-contacts");
+}
+
+export function createEmergencyContact(data: { name: string; phone_e164?: string; email?: string; relationship?: string }): Promise<EmergencyContact> {
+  return requestJson<EmergencyContact>("/api/emergency-contacts", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function deleteEmergencyContact(id: string): Promise<void> {
+  return requestJson<void>(`/api/emergency-contacts/${id}`, { method: "DELETE" });
+}
+
+export function notifyEmergencyContact(contactId?: string): Promise<{ notified: number; contacts: string[] }> {
+  return requestJson<{ notified: number; contacts: string[] }>("/api/emergency-contacts/notify", {
+    method: "POST",
+    body: JSON.stringify(contactId ? { contact_id: contactId } : {}),
+  });
 }

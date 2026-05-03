@@ -232,3 +232,13 @@ export interface SavedLocation {
   lng: number;
   created_at: string;
 }
+
+export interface EmergencyContact {
+  id: string;
+  family_id: string;
+  name: string;
+  phone_e164: string | null;
+  email: string | null;
+  relationship: string;
+  created_at: string;
+}

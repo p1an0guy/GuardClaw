@@ -18,15 +18,19 @@ from app.models.schemas import (
     Camera,
     CameraAlertSchedule,
     CreateCameraRequest,
+    CreateEmergencyContactRequest,
     CreateSavedLocationRequest,
     CreateScheduleRequest,
+    EmergencyContact,
     HouseholdState,
     IncidentRecord,
+    NotifyEmergencyContactRequest,
     SavedLocation,
     SimulateEventRequest,
     TimelineEntry,
     UpdateCameraRequest,
 )
+from app.services.emergency_contacts import EmergencyContactService
 from app.services.alert_sources import AlertSourceService
 from app.services.camera_service import CameraService
 from app.services.cctv_monitor import CCTVMonitor
@@ -155,6 +159,63 @@ async def create_saved_location(request: CreateSavedLocationRequest) -> SavedLoc
     if result is None:
         raise HTTPException(status_code=400, detail="Could not save location. Member may not have GPS coordinates.")
     return result
+
+
+@app.get("/api/emergency-contacts", response_model=list[EmergencyContact])
+async def list_emergency_contacts() -> list[EmergencyContact]:
+    return await EmergencyContactService(settings).list_contacts()
+
+
+@app.post("/api/emergency-contacts", response_model=EmergencyContact, status_code=201)
+async def create_emergency_contact(request: CreateEmergencyContactRequest) -> EmergencyContact:
+    return await EmergencyContactService(settings).create_contact(
+        request.name, request.phone_e164, request.email, request.relationship
+    )
+
+
+@app.delete("/api/emergency-contacts/{contact_id}", status_code=204)
+async def delete_emergency_contact(contact_id: str) -> None:
+    await EmergencyContactService(settings).delete_contact(contact_id)
+
+
+@app.post("/api/emergency-contacts/notify")
+async def notify_emergency_contacts(request: NotifyEmergencyContactRequest = Body(default=NotifyEmergencyContactRequest())) -> dict[str, object]:
+    from app.services.messaging import MessagingService
+    from app.services.hermes_adapter import HermesAdapter
+
+    svc = EmergencyContactService(settings)
+    contacts = await svc.list_contacts()
+    if request.contact_id:
+        contacts = [c for c in contacts if c.id == request.contact_id]
+    if not contacts:
+        return {"notified": 0, "message": "No contacts found"}
+
+    from app.services.supabase_incident import SupabaseIncidentService
+    latest = await SupabaseIncidentService(settings).get_latest()
+    summary = latest.summary if latest else "No active incident."
+    title = latest.classification_level.replace("_", " ").upper() + " alert" if latest else "GuardClaw alert"
+
+    hermes = HermesAdapter(settings) if settings.use_hermes else None
+    messenger = MessagingService(store, hermes)
+    from app.models.schemas import OutboundMessage, OutboundStatus, Channel, new_id as _new_id, utc_now
+    messages = []
+    for contact in contacts:
+        channel = Channel.SMS if contact.phone_e164 else Channel.EMAIL
+        messages.append(OutboundMessage(
+            id=_new_id("msg"),
+            incident_id=latest.id if latest else "none",
+            recipient_id=contact.id,
+            recipient_name=contact.name,
+            channel=channel,
+            status=OutboundStatus.DRAFT,
+            subject=title,
+            body=f"GuardClaw emergency notification for {contact.name}: {summary}",
+            created_at=utc_now(),
+            demo_mode=settings.demo_mode,
+            generated_by="emergency_contact_notify",
+        ))
+    sent = await messenger.send_all(messages, incident_id=latest.id if latest else None)
+    return {"notified": len(sent), "contacts": [c.name for c in contacts]}
 
 
 @app.get("/api/cameras", response_model=list[Camera])

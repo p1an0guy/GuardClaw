@@ -1192,3 +1192,121 @@ button:disabled {
   background: #4FD1C5;
   color: #080B10;
 }
+
+/* Emergency Contacts */
+.ec-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.ec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.ec-header h3 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.ec-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ec-notify-all-btn {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #F59E0B;
+  background: rgba(245, 158, 11, 0.1);
+  color: #F59E0B;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ec-notify-all-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.ec-notify-all-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ec-add-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s;
+}
+
+.ec-add-btn:hover {
+  border-color: var(--olive);
+}
+
+.ec-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.ec-add-form input,
+.ec-add-form select {
+  flex: 1;
+  min-width: 100px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper-3);
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.ec-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ec-delete-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.ec-delete-btn:hover {
+  color: var(--rust);
+  border-color: var(--rust);
+}

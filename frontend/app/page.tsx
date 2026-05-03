@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 
+import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { GpsMap } from "@/components/GpsMap";
 import { IncidentHistoryModal } from "@/components/IncidentHistoryModal";
-import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getHousehold, getLatestIncident, getSavedLocations, getTimeline } from "@/lib/api";
+import { acknowledgeAction, createSavedLocation, getActiveIncident, getAuditLog, getEmergencyContacts, getHousehold, getLatestIncident, getSavedLocations, getTimeline } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
   CameraSignal,
+  EmergencyContact,
   HouseholdMember,
   HouseholdState,
   IncidentRecord,
@@ -142,6 +144,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [ackId, setAckId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
 
   const [chatMessages, setChatMessages] = useState<Array<{role: string; content: string}>>([]);
   const [chatInput, setChatInput] = useState("");
@@ -154,13 +157,14 @@ export default function DashboardPage() {
   const cameraSignal = active?.camera_signal ?? plan?.camera_signal ?? null;
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse, auditLogResponse, incidentResponse, savedLocationsResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse, auditLogResponse, incidentResponse, savedLocationsResponse, emergencyContactsResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
       getTimeline(),
       getAuditLog(),
       getLatestIncident(),
       getSavedLocations().catch(() => [] as SavedLocation[]),
+      getEmergencyContacts().catch(() => [] as EmergencyContact[]),
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
@@ -168,6 +172,7 @@ export default function DashboardPage() {
     setAuditLog(auditLogResponse);
     setLatestIncident(incidentResponse);
     setSavedLocations(savedLocationsResponse);
+    setEmergencyContacts(emergencyContactsResponse);
   }
 
   useEffect(() => {
@@ -352,6 +357,7 @@ export default function DashboardPage() {
               );
             }) ?? <p className="muted-text">Loading household members...</p>}
           </div>
+          <EmergencyContacts contacts={emergencyContacts} onRefresh={() => getEmergencyContacts().then(setEmergencyContacts).catch(() => {})} />
         </section>
 
         <section className="ops-panel area-audit">

@@ -345,3 +345,24 @@ class IncidentRecord(BaseModel):
     severity: Severity
     location_label: str
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class EmergencyContact(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("ec"))
+    family_id: str = ""
+    name: str
+    phone_e164: str | None = None
+    email: str | None = None
+    relationship: str = "neighbor"
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CreateEmergencyContactRequest(BaseModel):
+    name: str
+    phone_e164: str | None = None
+    email: str | None = None
+    relationship: str = "neighbor"
+
+
+class NotifyEmergencyContactRequest(BaseModel):
+    contact_id: str | None = None  # None means notify all
