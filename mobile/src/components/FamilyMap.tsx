@@ -34,12 +34,15 @@ const darkMapStyle = [
 
 type Props = {
   currentLocation: Coordinate | null;
+  currentMemberId?: string | null;
   focusedCoordinate?: Coordinate | null;
   focusedMemberId?: string | null;
   isGuardian?: boolean;
-  locationState: 'requesting' | 'live' | 'denied' | 'unavailable';
+  locationState: 'requesting' | 'live' | 'spoof' | 'denied' | 'unavailable';
   members: FamilyMember[];
   onMarkLocation?: (memberId: string, label: LocationLabel) => void;
+  onSpoofLocationChange?: (coordinate: Coordinate) => void;
+  spoofMode?: boolean;
   savedLocations?: SavedLocation[];
 };
 
@@ -86,7 +89,7 @@ const regionForCoordinates = (coordinates: LatLng[]): Region => {
   };
 };
 
-export default function FamilyMap({ currentLocation, focusedCoordinate, focusedMemberId, isGuardian, locationState, members, onMarkLocation, savedLocations = [] }: Props) {
+export default function FamilyMap({ currentLocation, currentMemberId, focusedCoordinate, focusedMemberId, isGuardian, locationState, members, onMarkLocation, onSpoofLocationChange, spoofMode = false, savedLocations = [] }: Props) {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -166,7 +169,9 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
   }, [focusedCoordinate, mapReady]);
 
   const liveLabel =
-    locationState === 'live'
+    locationState === 'spoof'
+      ? 'Spoof mode'
+      : locationState === 'live'
       ? 'Live GPS'
       : locationState === 'requesting'
         ? 'Locating'
@@ -188,11 +193,31 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
       >
         {memberCoordinates.map(({ coordinate, member }) => {
           const theme = statusTheme[member.status];
+          const isCurrentMember = member.id === currentMemberId;
 
           return (
-            <Marker coordinate={coordinate} key={member.id} title={member.name}>
-              <View style={[styles.marker, { borderColor: theme.color }]}>
-                <Text style={styles.markerText}>{initialsFor(member.name) || '?'}</Text>
+            <Marker
+              coordinate={coordinate}
+              draggable={spoofMode && isCurrentMember}
+              key={member.id}
+              onDragEnd={
+                spoofMode && isCurrentMember && onSpoofLocationChange
+                  ? (event) => onSpoofLocationChange(event.nativeEvent.coordinate)
+                  : undefined
+              }
+              title={member.name}
+            >
+              <View style={[
+                styles.marker,
+                isCurrentMember && styles.currentMarker,
+                spoofMode && isCurrentMember && styles.spoofMarker,
+                { borderColor: spoofMode && isCurrentMember ? colors.warning : theme.color },
+              ]}>
+                {isCurrentMember && spoofMode ? (
+                  <Ionicons color={colors.black} name="locate" size={17} />
+                ) : (
+                  <Text style={styles.markerText}>{initialsFor(member.name) || '?'}</Text>
+                )}
                 <View style={[styles.markerStatus, { backgroundColor: theme.color }]} />
               </View>
             </Marker>
@@ -227,7 +252,11 @@ export default function FamilyMap({ currentLocation, focusedCoordinate, focusedM
           <Text style={styles.mapTitleText}>{members.length} members</Text>
         </View>
         <View style={styles.gpsPill}>
-          <View style={[styles.gpsDot, locationState === 'live' && styles.gpsDotLive]} />
+          <View style={[
+            styles.gpsDot,
+            locationState === 'spoof' && styles.gpsDotSpoof,
+            locationState === 'live' && styles.gpsDotLive,
+          ]} />
           <Text style={styles.gpsText}>{liveLabel}</Text>
         </View>
       </View>
@@ -320,6 +349,9 @@ const styles = StyleSheet.create({
   gpsDotLive: {
     backgroundColor: colors.success,
   },
+  gpsDotSpoof: {
+    backgroundColor: colors.warning,
+  },
   gpsText: {
     color: colors.textSoft,
     fontSize: 12,
@@ -373,6 +405,14 @@ const styles = StyleSheet.create({
     height: 42,
     justifyContent: 'center',
     width: 42,
+  },
+  currentMarker: {
+    backgroundColor: '#0F172A',
+  },
+  spoofMarker: {
+    borderColor: colors.warning,
+    borderWidth: 3,
+    transform: [{ scale: 1.08 }],
   },
   markerText: {
     color: colors.text,

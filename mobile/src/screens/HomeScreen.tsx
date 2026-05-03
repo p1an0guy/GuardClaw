@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
@@ -26,7 +26,8 @@ import {
 import { colors } from '../theme';
 import { type AppNotification, type Coordinate, type FamilyMember, type FamilyMessage, type LocationLabel, MEMBER_STATUSES, type MemberStatus, type QuickActionId, type SavedLocation } from '../types';
 
-type LocationState = 'requesting' | 'live' | 'denied' | 'unavailable';
+type LocationState = 'requesting' | 'live' | 'spoof' | 'denied' | 'unavailable';
+type LocationUpdate = Pick<Location.LocationObjectCoords, 'latitude' | 'longitude' | 'accuracy' | 'speed'>;
 
 const statusPriority: Record<MemberStatus, number> = {
   'Needs Help': 0,
@@ -131,6 +132,7 @@ export default function HomeScreen() {
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Coordinate | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('requesting');
+  const [spoofMode, setSpoofMode] = useState(false);
   const [loadingBackend, setLoadingBackend] = useState(isSupabaseConfigured);
   const [notice, setNotice] = useState<string | null>(
     isSupabaseConfigured ? null : 'Demo mode. Add Supabase env vars to sync live family data.',
@@ -140,6 +142,7 @@ export default function HomeScreen() {
   const lastLocationPushRef = useRef(0);
   const batteryRef = useRef<number>(100);
   const currentLocationRef = useRef<Coordinate | null>(null);
+  const logoTapRef = useRef(0);
   const membersRef = useRef<FamilyMember[]>(members);
 
   const currentMember = useMemo(() => {
@@ -296,7 +299,7 @@ export default function HomeScreen() {
     [updateCurrentMemberLocally],
   );
 
-  const persistLocationSnapshot = useCallback(async (coords: Location.LocationObjectCoords) => {
+  const persistLocationSnapshot = useCallback(async (coords: LocationUpdate) => {
     const client = supabase;
     const memberId = currentMemberIdRef.current;
 
@@ -321,8 +324,8 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handleLocationUpdate = useCallback(
-    (coords: Location.LocationObjectCoords) => {
+  const commitLocationUpdate = useCallback(
+    (coords: LocationUpdate, source: 'gps' | 'spoof' = 'gps') => {
       const nextLocation = {
         latitude: coords.latitude,
         longitude: coords.longitude,
@@ -332,11 +335,13 @@ export default function HomeScreen() {
       currentLocationRef.current = nextLocation;
 
       const derivedStatus: MemberStatus | undefined =
-        coords.speed != null
-          ? coords.speed > 0.5
-            ? 'Moving'
-            : 'Safe'
-          : undefined;
+        source === 'spoof'
+          ? 'Moving'
+          : coords.speed != null
+            ? coords.speed > 0.5
+              ? 'Moving'
+              : 'Safe'
+            : undefined;
 
       updateCurrentMemberLocally({
         lat: nextLocation.latitude,
@@ -349,12 +354,15 @@ export default function HomeScreen() {
       }
 
       const now = Date.now();
+      const shouldThrottle = source !== 'spoof';
 
-      if (now - lastLocationPushRef.current < 5_000) {
+      if (shouldThrottle && now - lastLocationPushRef.current < 5_000) {
         return;
       }
 
-      lastLocationPushRef.current = now;
+      if (shouldThrottle) {
+        lastLocationPushRef.current = now;
+      }
       persistCurrentMember({
         lat: nextLocation.latitude,
         lng: nextLocation.longitude,
@@ -370,6 +378,42 @@ export default function HomeScreen() {
     [persistCurrentMember, persistLocationSnapshot, updateCurrentMemberLocally],
   );
 
+  const handleLogoDoubleTap = useCallback(() => {
+    const now = Date.now();
+
+    if (now - logoTapRef.current > 320) {
+      logoTapRef.current = now;
+      return;
+    }
+
+    logoTapRef.current = 0;
+    setSpoofMode((previous) => {
+      const next = !previous;
+
+      if (next) {
+        setLocationState('spoof');
+        setNotice('Spoof mode enabled. Drag your marker to set a new GPS location.');
+        const fallback = currentLocationRef.current ?? (
+          currentMember?.lat != null && currentMember.lng != null
+            ? { latitude: currentMember.lat, longitude: currentMember.lng }
+            : { latitude: 37.7793, longitude: -122.4192 }
+        );
+
+        setCurrentLocation(fallback);
+        currentLocationRef.current = fallback;
+        updateCurrentMemberLocally({
+          lat: fallback.latitude,
+          lng: fallback.longitude,
+        });
+      } else {
+        setLocationState('requesting');
+        setNotice('Spoof mode disabled. Live GPS restored.');
+      }
+
+      return next;
+    });
+  }, [currentMember?.lat, currentMember?.lng, updateCurrentMemberLocally]);
+
   const getFreshLocation = useCallback(async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
 
@@ -382,19 +426,24 @@ export default function HomeScreen() {
       accuracy: Location.Accuracy.Balanced,
     });
 
-    handleLocationUpdate(location.coords);
+    commitLocationUpdate(location.coords);
 
     return {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
     };
-  }, [handleLocationUpdate]);
+  }, [commitLocationUpdate]);
 
   useEffect(() => {
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
 
     const startLocation = async () => {
+      if (spoofMode) {
+        setLocationState('spoof');
+        return;
+      }
+
       try {
         setLocationState('requesting');
         const permission = await Location.requestForegroundPermissionsAsync();
@@ -417,17 +466,17 @@ export default function HomeScreen() {
           return;
         }
 
-        handleLocationUpdate(location.coords);
+        commitLocationUpdate(location.coords);
         setLocationState('live');
 
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 15,
-            timeInterval: 10_000,
-          },
-          (nextLocation) => {
-            handleLocationUpdate(nextLocation.coords);
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 15,
+          timeInterval: 10_000,
+        },
+        (nextLocation) => {
+            commitLocationUpdate(nextLocation.coords);
           },
         );
       } catch (error) {
@@ -446,7 +495,7 @@ export default function HomeScreen() {
       active = false;
       subscription?.remove();
     };
-  }, [handleLocationUpdate]);
+  }, [commitLocationUpdate, spoofMode]);
 
   useEffect(() => {
     const client = supabase;
@@ -721,16 +770,30 @@ export default function HomeScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.header}>
-          <View style={styles.logoMark}>
-            <Text style={styles.logoText}>GC</Text>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle GPS spoof mode"
+            hitSlop={12}
+            onPress={handleLogoDoubleTap}
+            style={({ pressed }) => [
+              styles.logoMark,
+              pressed && styles.logoMarkPressed,
+              spoofMode && styles.logoMarkSpoof,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={require('../../assets/guardclaw-logo.png')}
+              style={styles.logoImage}
+            />
+          </Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.appName}>GuardClaw</Text>
-            <Text style={styles.tagline}>Family safety at a glance</Text>
+            <Text style={styles.tagline}>{spoofMode ? 'GPS spoof mode enabled' : 'Family safety at a glance'}</Text>
           </View>
           <View style={styles.connectionBadge}>
-            <View style={[styles.connectionDot, isSupabaseConfigured && styles.connectionDotLive]} />
-            <Text style={styles.connectionText}>{connectionLabel}</Text>
+            <View style={[styles.connectionDot, spoofMode ? styles.connectionDotSpoof : isSupabaseConfigured && styles.connectionDotLive]} />
+            <Text style={styles.connectionText}>{spoofMode ? 'GPS spoof' : connectionLabel}</Text>
           </View>
         </View>
 
@@ -763,12 +826,20 @@ export default function HomeScreen() {
             <>
               <FamilyMap
                 currentLocation={currentLocation}
+                currentMemberId={currentMember?.id ?? currentMemberIdRef.current}
                 focusedCoordinate={focusedCoordinate}
                 focusedMemberId={focusedMemberId}
                 isGuardian={currentMemberRole === 'guardian'}
                 locationState={locationState}
                 members={members}
                 onMarkLocation={handleMarkLocation}
+                onSpoofLocationChange={(coordinate) => commitLocationUpdate({
+                  latitude: coordinate.latitude,
+                  longitude: coordinate.longitude,
+                  accuracy: null,
+                  speed: null,
+                }, 'spoof')}
+                spoofMode={spoofMode}
                 savedLocations={savedLocations}
               />
               <StatusDashboard currentLocation={currentLocation} loading={loadingBackend} memberLocationLabels={memberLocationLabels} members={members} onMemberPress={setFocusedMemberId} />
@@ -839,16 +910,26 @@ const styles = StyleSheet.create({
   },
   logoMark: {
     alignItems: 'center',
-    backgroundColor: colors.accent,
+    backgroundColor: colors.panel,
+    borderColor: colors.borderSoft,
+    borderWidth: 1,
     borderRadius: 17,
     height: 42,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 42,
   },
-  logoText: {
-    color: colors.black,
-    fontSize: 14,
-    fontWeight: '900',
+  logoMarkPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  logoMarkSpoof: {
+    borderColor: colors.warning,
+    borderWidth: 2,
+  },
+  logoImage: {
+    height: '100%',
+    width: '100%',
   },
   headerCopy: {
     flex: 1,
@@ -885,6 +966,9 @@ const styles = StyleSheet.create({
   },
   connectionDotLive: {
     backgroundColor: colors.success,
+  },
+  connectionDotSpoof: {
+    backgroundColor: colors.warning,
   },
   connectionText: {
     color: colors.textSoft,
