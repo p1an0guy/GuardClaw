@@ -222,3 +222,13 @@ export interface IncidentRecord {
   location_label: string;
   created_at: string;
 }
+
+export interface SavedLocation {
+  id: string;
+  family_id: string;
+  member_id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  created_at: string;
+}
