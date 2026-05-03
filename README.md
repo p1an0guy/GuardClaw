@@ -264,7 +264,9 @@ Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE) for details.
 
 ---
 
-<!-- TODO: Fill in team/contact info -->
-<!-- ## Contact -->
-<!-- Your Name — [@yourtwitter](https://twitter.com/yourtwitter) — email@example.com -->
-<!-- Project Link: [https://github.com/YOUR_ORG/YOUR_REPO](https://github.com/YOUR_ORG/YOUR_REPO) -->
+## Contact
+Jonah Chan — [GitHub](https://github.com/p1an0guy) — [LinkedIn](https://www.linkedin.com/in/jonah-chan/)
+Jeremiah Liao - [GitHub](https://github.com/jeremiahliao) - [LinkedIn](https://www.linkedin.com/in/jeremiahliao/)
+Mason Lewis - [GitHub](https://github.com/masonclewis) - [LinkedIn](https://www.linkedin.com/in/masonclewis/)
+Isaac Tsai - [GitHub](https://github.com/itsisaac19) - [LinkedIn](https://www.linkedin.com/in/isaac-m-tsai/)
+
