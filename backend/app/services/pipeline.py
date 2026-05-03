@@ -77,7 +77,7 @@ async def run_alert_pipeline(
         TimelineEntry(
             incident_id=event.id,
             kind="incident_created",
-            title="Simulated incident created",
+            title="Live alert received" if event.is_live else "Simulated incident created",
             detail=f"{event.title} was ingested from {event.source_name}.",
             metadata={
                 "source": event.source_kind.value,
