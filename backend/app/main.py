@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Body, FastAPI
+from pydantic import BaseModel as PydanticBaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -200,6 +201,41 @@ async def create_schedule(camera_id: str, request: CreateScheduleRequest) -> Cam
 @app.delete("/api/cameras/{camera_id}/schedules/{schedule_id}", status_code=204)
 async def delete_schedule(camera_id: str, schedule_id: str) -> None:
     await CameraService(settings).delete_schedule(schedule_id)
+
+
+class ChatRequest(PydanticBaseModel):
+    message: str
+    history: list[dict[str, str]] = []
+
+class ChatResponse(PydanticBaseModel):
+    reply: str
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_with_hermes(req: ChatRequest) -> ChatResponse:
+    import httpx
+    system = "You are GuardClaw, a calm consent-based household safety coordinator. You help household members understand alerts, check on family status, and coordinate next steps. Be concise and helpful."
+    messages = [{"role": "system", "content": system}]
+    for msg in req.history:
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": req.message})
+
+    if not settings.use_hermes or not settings.hermes_api_key:
+        return ChatResponse(reply="Hermes is not configured. Set GUARDCLAW_USE_HERMES=true and provide HERMES_API_KEY.")
+
+    url = f"{settings.hermes_api_base_url.rstrip('/')}/chat/completions"
+    headers = {"Authorization": f"Bearer {settings.hermes_api_key}"}
+    payload = {
+        "model": settings.hermes_model,
+        "messages": messages,
+        "temperature": 0.4,
+        "stream": False,
+    }
+    async with httpx.AsyncClient(timeout=settings.hermes_timeout_seconds) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+    reply = data["choices"][0]["message"]["content"]
+    return ChatResponse(reply=reply)
 
 
 @app.post("/api/cameras/{camera_id}/simulate-detection")
