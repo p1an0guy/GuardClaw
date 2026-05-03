@@ -109,14 +109,12 @@ button:disabled {
 .ops-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.46fr) minmax(300px, 0.92fr);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
   grid-template-areas:
     "alert alert summary"
     "chat map members"
     "timeline cctv-block audit";
   gap: 14px;
-  align-items: stretch;
-  height: 100vh;
 }
 
 .ops-panel {
@@ -324,6 +322,16 @@ button:disabled {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  max-height: 520px;
+}
+
+.area-audit {
+  grid-area: audit;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 520px;
 }
 
 .timeline-list {
@@ -959,14 +967,6 @@ button:disabled {
     bottom: 10px;
     max-width: calc(100% - 20px);
   }
-}
-
-.area-audit {
-  grid-area: audit;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 .area-audit h2 {
