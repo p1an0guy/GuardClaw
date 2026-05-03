@@ -178,16 +178,32 @@ button:disabled {
 
 .headline-clickable {
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: border-color 0.2s;
+  position: relative;
+}
+
+.headline-clickable::after {
+  content: "Click to view incident history";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 11, 16, 0.7);
+  color: #4FD1C5;
+  font-size: 1rem;
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+.headline-clickable:hover::after {
+  opacity: 1;
 }
 
 .headline-clickable:hover {
-  background: var(--paper-2);
   border-color: var(--olive);
-}
-
-.headline-clickable:hover .headline-ticker {
-  color: var(--olive);
 }
 
 .incident-pill {
