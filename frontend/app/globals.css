@@ -109,6 +109,7 @@ button:disabled {
 .ops-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.46fr) minmax(300px, 0.92fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   grid-template-areas:
     "alert alert summary"
     "chat map members"
@@ -318,9 +319,10 @@ button:disabled {
 }
 
 .ops-timeline {
-  min-height: 620px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .timeline-list {
