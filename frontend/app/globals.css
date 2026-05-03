@@ -112,10 +112,7 @@ button:disabled {
   grid-template-areas:
     "alert alert summary"
     "chat map members"
-    "timeline cctv1 audit"
-    "timeline cctv2 audit"
-    "timeline cctv3 audit"
-    "timeline cctv4 audit";
+    "timeline cctv-block audit";
   gap: 14px;
   align-items: stretch;
 }
@@ -150,8 +147,7 @@ button:disabled {
 }
 
 .area-cctv-block {
-  grid-column: 2;
-  grid-row: 3 / span 4;
+  grid-area: cctv-block;
 }
 
 .cctv-grid {
@@ -910,11 +906,6 @@ button:disabled {
       "members"
       "cctv-block"
       "audit";
-  }
-
-  .area-cctv-block {
-    grid-column: auto;
-    grid-row: auto;
   }
 
   .cctv-grid {
