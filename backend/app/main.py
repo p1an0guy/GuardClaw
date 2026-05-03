@@ -36,6 +36,8 @@ from app.services.messaging import MessagingService
 from app.services.notification_writer import write_notifications
 from app.services.risk_engine import build_action_plan
 from app.services.nws_poller import NWSPoller
+from app.services.ipaws_poller import IPAWSPoller
+from app.services.usgs_poller import USGSPoller
 from app.services.pipeline import run_alert_pipeline
 from app.services.supabase_audit import SupabaseAuditService
 from app.services.supabase_household import SupabaseHouseholdService
@@ -52,12 +54,18 @@ async def lifespan(_: FastAPI):
     ensure_demo_seed(store)
     await audit_service.bootstrap()
     poller_task = asyncio.create_task(NWSPoller().run(store, settings))
+    ipaws_task = asyncio.create_task(IPAWSPoller().run(store, settings)) if settings.ipaws_poller_enabled else None
+    usgs_task = asyncio.create_task(USGSPoller().run(store, settings)) if settings.usgs_poller_enabled else None
     cctv_monitor = CCTVMonitor(settings) if settings.cctv_enabled else None
     if cctv_monitor:
         await cctv_monitor.start()
     yield
     if cctv_monitor:
         await cctv_monitor.stop()
+    if ipaws_task:
+        ipaws_task.cancel()
+    if usgs_task:
+        usgs_task.cancel()
     poller_task.cancel()
 
 

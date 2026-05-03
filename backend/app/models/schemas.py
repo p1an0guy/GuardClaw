@@ -50,6 +50,7 @@ class SourceKind(str, Enum):
     SLO_COUNTY = "slo_county"
     CAL_POLY = "cal_poly"
     CCTV = "cctv"
+    USGS = "usgs"
 
 
 class Severity(str, Enum):
