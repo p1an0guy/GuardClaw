@@ -32,6 +32,8 @@ async def run_alert_pipeline(
     camera_scenario: str = "front_walkway",
     camera_signal_override: CameraSignal | None = None,
 ) -> ActiveIncidentResponse:
+    from uuid import uuid4
+    incident_id = str(uuid4())
     household = await SupabaseHouseholdService(settings).get_household()
     if household is None:
         household = store.get_household() or ensure_demo_seed(store)
@@ -41,15 +43,16 @@ async def run_alert_pipeline(
     hermes = HermesAdapter(settings)
     proximity_ids = _members_in_radius(household, event, settings.alert_radius_km)
     proximity_members = [{"id": m.id, "name": m.name} for m in household.members if m.id in proximity_ids]
-    classification, classifier_note = await hermes.classify_alert(event, household, camera_signal, proximity_members)
+    classification, classifier_note = await hermes.classify_alert(event, household, camera_signal, proximity_members, incident_id=incident_id)
     logger.info("Hermes classify_alert: %s", classifier_note)
     if classification is None:
         classification = local_classify_alert(event, household, camera_signal, [classifier_note])
 
-    summary_text, summary_note = await hermes.generate_incident_summary(event, household, classification, camera_signal)
+    summary_text, summary_note = await hermes.generate_incident_summary(event, household, classification, camera_signal, incident_id=incident_id)
     logger.info("Hermes generate_incident_summary: %s", summary_note)
     affected = [{"member_id": m.id, "name": m.name, "risk_level": m.status.value} for m in household.members if m.id in proximity_ids]
     incident_record = IncidentRecord(
+        id=incident_id,
         event_id=event.id,
         summary=summary_text,
         classification_level=classification.level.value,
@@ -65,7 +68,7 @@ async def run_alert_pipeline(
 
     plan = build_action_plan(event, household, classification, camera_signal, radius_km=settings.alert_radius_km)
 
-    plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan, proximity_members)
+    plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan, proximity_members, incident_id=incident_id)
     logger.info("Hermes refine_action_plan_messages: %s", hermes_note)
 
     store.clear_timeline()
@@ -122,7 +125,7 @@ async def run_alert_pipeline(
             metadata={"generated_by": plan.generated_by, "hermes_note": hermes_note},
         )
     )
-    webhook_ok, webhook_note = await hermes.send_family_alert_triage(event, household, proximity_ids)
+    webhook_ok, webhook_note = await hermes.send_family_alert_triage(event, household, proximity_ids, incident_id=incident_id)
     store.add_timeline(
         TimelineEntry(
             incident_id=event.id,
@@ -144,7 +147,7 @@ async def run_alert_pipeline(
             )
         )
 
-    sent_messages = await MessagingService(store, hermes).send_all(plan.outbound_messages)
+    sent_messages = await MessagingService(store, hermes).send_all(plan.outbound_messages, incident_id=incident_id)
     plan = plan.model_copy(update={"outbound_messages": sent_messages})
     store.set_active_incident(event, plan)
     return ActiveIncidentResponse(

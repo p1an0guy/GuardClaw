@@ -27,6 +27,7 @@ class HermesAdapter:
     async def refine_action_plan_messages(
         self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan,
         proximity_members: list[dict[str, str]] | None = None,
+        incident_id: str | None = None,
     ) -> tuple[ActionPlan, str | None]:
         if not self.settings.use_hermes:
             return plan, "Hermes disabled; using deterministic local message drafts."
@@ -34,7 +35,7 @@ class HermesAdapter:
             return plan, "Hermes enabled but HERMES_API_KEY is not set; using local message drafts."
 
         try:
-            content = await self._call_hermes(event, household, plan, proximity_members)
+            content = await self._call_hermes(event, household, plan, proximity_members, incident_id=incident_id)
             updates = self._parse_message_updates(content)
         except Exception as exc:
             return plan, f"Hermes unavailable; using local message drafts. Detail: {exc}"
@@ -67,6 +68,7 @@ class HermesAdapter:
         household: HouseholdState,
         camera_signal: CameraSignal | None,
         proximity_members: list[dict[str, str]] | None = None,
+        incident_id: str | None = None,
     ) -> tuple[AlertClassification | None, str]:
         if not self.settings.use_hermes:
             return None, "Hermes disabled; classification will use local fallback."
@@ -76,7 +78,7 @@ class HermesAdapter:
         last_error = "unknown error"
         for attempt in range(2):
             try:
-                content = await self._call_hermes_classifier(event, household, camera_signal, attempt, proximity_members)
+                content = await self._call_hermes_classifier(event, household, camera_signal, attempt, proximity_members, incident_id=incident_id)
                 classification = self._parse_classification(content)
                 return classification, f"Hermes classification accepted on attempt {attempt + 1}."
             except Exception as exc:
@@ -90,6 +92,7 @@ class HermesAdapter:
         household: HouseholdState,
         classification: AlertClassification,
         camera_signal: CameraSignal | None,
+        incident_id: str | None = None,
     ) -> tuple[str, str]:
         fallback = f"{event.title}. Classified as {classification.level.value.replace('_', ' ')}. {classification.rationale}"
         if not self.settings.use_hermes or not self.settings.hermes_api_key:
@@ -106,6 +109,7 @@ class HermesAdapter:
                 system="You are GuardClaw's incident summarizer. Return ONLY the summary text, no JSON, no quotes, no preamble.",
                 prompt=prompt,
                 temperature=0.3,
+                incident_id=incident_id,
             )
             summary = content.strip().strip('"')
             if len(summary) < 10:
@@ -114,7 +118,7 @@ class HermesAdapter:
         except Exception as exc:
             return fallback, f"Hermes summary failed: {exc}; using local fallback."
 
-    async def dispatch_outbound_message(self, message: OutboundMessage) -> tuple[OutboundMessage, str]:
+    async def dispatch_outbound_message(self, message: OutboundMessage, incident_id: str | None = None) -> tuple[OutboundMessage, str]:
         if not self.settings.use_hermes or not self.settings.hermes_api_key:
             return message, "Hermes unavailable; message remains a demo timeline draft."
 
@@ -133,6 +137,7 @@ class HermesAdapter:
                 system="You are GuardClaw's Hermes dispatcher. Use available messaging/call tools, then return compact JSON.",
                 prompt=prompt,
                 temperature=0.1,
+                incident_id=incident_id,
             )
             parsed = json.loads(content)
             status = str(parsed.get("status") or "queued").lower()
@@ -148,6 +153,7 @@ class HermesAdapter:
         event: ThreatEvent,
         household: HouseholdState,
         proximity_ids: list[str],
+        incident_id: str | None = None,
     ) -> tuple[bool, str]:
         """Send signed webhook to Hermes family-alert-triage endpoint."""
         if not self.settings.hermes_webhook_url or not self.settings.hermes_webhook_secret:
@@ -191,6 +197,7 @@ class HermesAdapter:
 
         payload = {
             "event_type": event.event_type,
+            "incident_id": incident_id,
             "alert": {
                 "id": event.id,
                 "source": event.source_kind.value.upper(),
@@ -231,7 +238,7 @@ class HermesAdapter:
         except Exception as exc:
             return False, f"Webhook failed: {exc}"
 
-    async def _call_hermes(self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan, proximity_members: list[dict[str, str]] | None = None) -> str:
+    async def _call_hermes(self, event: ThreatEvent, household: HouseholdState, plan: ActionPlan, proximity_members: list[dict[str, str]] | None = None, incident_id: str | None = None) -> str:
         prompt = {
             "task": "Refine GuardClaw outbound message drafts. Keep them calm, concise, and explicit that this is demo mode.",
             "constraints": [
@@ -250,6 +257,7 @@ class HermesAdapter:
             system="You are GuardClaw's Hermes runtime adapter. Return compact JSON and no prose.",
             prompt=prompt,
             temperature=0.2,
+            incident_id=incident_id,
         )
 
     async def _call_hermes_classifier(
@@ -259,6 +267,7 @@ class HermesAdapter:
         camera_signal: CameraSignal | None,
         attempt: int,
         proximity_members: list[dict[str, str]] | None = None,
+        incident_id: str | None = None,
     ) -> str:
         prompt = {
             "task": "Classify the urgency of this GuardClaw household alert.",
@@ -292,9 +301,12 @@ class HermesAdapter:
             system="You are GuardClaw's safety classifier. Return strict JSON and no prose.",
             prompt=prompt,
             temperature=0.0,
+            incident_id=incident_id,
         )
 
-    async def _call_chat(self, system: str, prompt: dict[str, Any], temperature: float) -> str:
+    async def _call_chat(self, system: str, prompt: dict[str, Any], temperature: float, incident_id: str | None = None) -> str:
+        if incident_id is not None:
+            prompt["incident_id"] = incident_id
         url = f"{self.settings.hermes_api_base_url.rstrip('/')}/chat/completions"
         headers = {"Authorization": f"Bearer {self.settings.hermes_api_key}"}
         payload = {
