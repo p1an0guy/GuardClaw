@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 from app.core.config import Settings
+
+logger = logging.getLogger("uvicorn")
 from app.models.schemas import (
     ActiveIncidentResponse,
     CameraSignal,
     HouseholdState,
+    IncidentRecord,
     TimelineEntry,
     ThreatEvent,
 )
@@ -15,6 +20,7 @@ from app.services.hermes_adapter import HermesAdapter
 from app.services.messaging import MessagingService
 from app.services.risk_engine import build_action_plan, _members_in_radius
 from app.services.supabase_household import SupabaseHouseholdService
+from app.services.supabase_incident import SupabaseIncidentService
 from app.services.demo_seed import ensure_demo_seed
 
 
@@ -24,23 +30,43 @@ async def run_alert_pipeline(
     settings: Settings,
     include_camera: bool = False,
     camera_scenario: str = "front_walkway",
+    camera_signal_override: CameraSignal | None = None,
 ) -> ActiveIncidentResponse:
     household = await SupabaseHouseholdService(settings).get_household()
     if household is None:
         household = store.get_household() or ensure_demo_seed(store)
     else:
         store.set_household(household)
-    camera_signal = CameraSignalService(settings).create_signal(include_camera, camera_scenario)
+    camera_signal = camera_signal_override or CameraSignalService(settings).create_signal(include_camera, camera_scenario)
     hermes = HermesAdapter(settings)
     proximity_ids = _members_in_radius(household, event, settings.alert_radius_km)
     proximity_members = [{"id": m.id, "name": m.name} for m in household.members if m.id in proximity_ids]
     classification, classifier_note = await hermes.classify_alert(event, household, camera_signal, proximity_members)
+    logger.info("Hermes classify_alert: %s", classifier_note)
     if classification is None:
         classification = local_classify_alert(event, household, camera_signal, [classifier_note])
+
+    summary_text, summary_note = await hermes.generate_incident_summary(event, household, classification, camera_signal)
+    logger.info("Hermes generate_incident_summary: %s", summary_note)
+    affected = [{"member_id": m.id, "name": m.name, "risk_level": m.status.value} for m in household.members if m.id in proximity_ids]
+    incident_record = IncidentRecord(
+        event_id=event.id,
+        summary=summary_text,
+        classification_level=classification.level.value,
+        affected_members=affected,
+        source_kind=event.source_kind,
+        severity=event.severity,
+        location_label=event.location_label,
+    )
+    try:
+        await SupabaseIncidentService(settings).create_incident(incident_record)
+    except Exception:
+        pass
 
     plan = build_action_plan(event, household, classification, camera_signal, radius_km=settings.alert_radius_km)
 
     plan, hermes_note = await hermes.refine_action_plan_messages(event, household, plan, proximity_members)
+    logger.info("Hermes refine_action_plan_messages: %s", hermes_note)
 
     store.clear_timeline()
     store.add_timeline(
@@ -76,6 +102,15 @@ async def run_alert_pipeline(
                 **classification.model_dump(mode="json"),
                 "classifier_note": classifier_note,
             },
+        )
+    )
+    store.add_timeline(
+        TimelineEntry(
+            incident_id=event.id,
+            kind="incident_summary_generated",
+            title="Incident summary created",
+            detail=summary_text,
+            metadata={"summary_note": summary_note},
         )
     )
     store.add_timeline(
@@ -117,5 +152,6 @@ async def run_alert_pipeline(
         action_plan=plan,
         camera_signal=camera_signal,
         classification=classification,
+        summary=summary_text,
         demo_mode=True,
     )

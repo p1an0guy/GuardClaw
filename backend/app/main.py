@@ -19,6 +19,7 @@ from app.models.schemas import (
     CreateCameraRequest,
     CreateScheduleRequest,
     HouseholdState,
+    IncidentRecord,
     SimulateEventRequest,
     TimelineEntry,
     UpdateCameraRequest,
@@ -35,8 +36,10 @@ from app.services.nws_poller import NWSPoller
 from app.services.pipeline import run_alert_pipeline
 from app.services.supabase_audit import SupabaseAuditService
 from app.services.supabase_household import SupabaseHouseholdService
+from app.services.supabase_incident import SupabaseIncidentService
 
 audit_service = SupabaseAuditService(settings)
+incident_service = SupabaseIncidentService(settings)
 
 
 @asynccontextmanager
@@ -88,6 +91,20 @@ async def simulate_event(
 @app.get("/api/incidents/active", response_model=ActiveIncidentResponse)
 async def get_active_incident() -> ActiveIncidentResponse:
     return store.get_active_incident()
+
+
+@app.get("/api/incidents/latest", response_model=IncidentRecord)
+async def get_latest_incident() -> IncidentRecord:
+    from fastapi import HTTPException
+    record = await incident_service.get_latest()
+    if record is None:
+        raise HTTPException(status_code=404, detail="No incidents found")
+    return record
+
+
+@app.get("/api/incidents", response_model=list[IncidentRecord])
+async def list_incidents() -> list[IncidentRecord]:
+    return await incident_service.list_incidents()
 
 
 @app.get("/api/household", response_model=HouseholdState)
@@ -172,7 +189,6 @@ async def delete_schedule(camera_id: str, schedule_id: str) -> None:
 @app.post("/api/cameras/{camera_id}/simulate-detection")
 async def simulate_detection(camera_id: str) -> dict[str, object]:
     """Simulate a person detection event on a camera with clip extraction."""
-    import asyncio
     import os
     import time
     from app.services.cctv_alert_pipeline import CCTVAlertPipeline
@@ -186,7 +202,6 @@ async def simulate_detection(camera_id: str) -> dict[str, object]:
     timestamp = time.time()
     confidence = 0.92
 
-    # Extract a 20-30s clip directly from the video file using ffmpeg
     clip_url = None
     source = cam.get("stream_url") or ""
     if source and not source.startswith(("rtsp://", "http://", "https://", "/")):
@@ -195,17 +210,11 @@ async def simulate_detection(camera_id: str) -> dict[str, object]:
     if source and os.path.exists(source):
         clip_url = await pipeline._extract_and_upload_clip(source, camera_id, timestamp)
 
-    await pipeline._send_webhook(
+    await pipeline.run_simulated_detection(
         camera_id=camera_id,
         camera_label=cam["label"],
         location_label=cam["location_label"],
         timestamp=timestamp,
-        confidence=confidence,
-        clip_url=clip_url,
-    )
-    await pipeline._write_notification(
-        camera_label=cam["label"],
-        location_label=cam["location_label"],
         confidence=confidence,
         clip_url=clip_url,
     )

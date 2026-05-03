@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
-import json
 import logging
 import tempfile
 from datetime import datetime, timezone
@@ -31,16 +28,68 @@ class CCTVAlertPipeline:
         confidence: float,
         buffer: FrameBuffer,
     ) -> None:
-        """Full pipeline: extract clip -> upload -> webhook -> notification."""
+        """Full pipeline: extract clip -> create ThreatEvent -> run unified alert pipeline."""
         clip_path = await self._extract_clip(buffer, camera_id, timestamp)
-        if clip_path is None:
-            logger.error("Failed to extract clip for camera %s", camera_id)
-            return
+        clip_url: str | None = None
+        if clip_path:
+            clip_url = await self._upload_clip(clip_path, camera_id, timestamp)
+            clip_path.unlink(missing_ok=True)
 
-        clip_url = await self._upload_clip(clip_path, camera_id, timestamp)
-        await self._send_webhook(camera_id, camera_label, location_label, timestamp, confidence, clip_url)
-        await self._write_notification(camera_label, location_label, confidence, clip_url)
-        clip_path.unlink(missing_ok=True)
+        await self._run_through_pipeline(camera_id, camera_label, location_label, timestamp, confidence, clip_url)
+
+    async def run_simulated_detection(
+        self,
+        camera_id: str,
+        camera_label: str,
+        location_label: str,
+        timestamp: float,
+        confidence: float,
+        clip_url: str | None,
+    ) -> None:
+        """Entry point for the simulate-detection API endpoint."""
+        await self._run_through_pipeline(camera_id, camera_label, location_label, timestamp, confidence, clip_url)
+
+    async def _run_through_pipeline(
+        self,
+        camera_id: str,
+        camera_label: str,
+        location_label: str,
+        timestamp: float,
+        confidence: float,
+        clip_url: str | None,
+    ) -> None:
+        from app.db.session import store
+        from app.models.schemas import CameraSignal, Severity, SourceKind, ThreatEvent, new_id, utc_now
+        from app.services.pipeline import run_alert_pipeline
+
+        detected_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        event = ThreatEvent(
+            id=f"cctv_{camera_id}_{int(timestamp)}",
+            event_type="cctv_person_detected",
+            title=f"Person detected: {camera_label}",
+            description=f"Person detected at {camera_label} ({location_label}) with {confidence:.0%} confidence.",
+            severity=Severity.HIGH,
+            location_label=location_label,
+            issued_at=detected_at,
+            source_kind=SourceKind.CCTV,
+            source_name=f"CCTV {camera_label}",
+            is_live=True,
+            is_simulated=False,
+            demo_mode=False,
+            raw={"camera_id": camera_id, "confidence": confidence},
+        )
+        camera_signal = CameraSignal(
+            label=camera_label,
+            clip_url=clip_url or self.settings.cctv_clip_url,
+            occupancy_confirmed=True,
+            confidence=confidence,
+            observed_at=detected_at,
+            summary=f"Person detected at {camera_label} with {confidence:.0%} confidence.",
+        )
+        try:
+            await run_alert_pipeline(event, store, self.settings, camera_signal_override=camera_signal)
+        except Exception as exc:
+            logger.error("CCTV unified pipeline failed for camera %s: %s", camera_id, exc)
 
     async def _extract_clip(self, buffer: FrameBuffer, camera_id: str, timestamp: float) -> Path | None:
         """Write buffer frames to a temp MP4 file using OpenCV."""
@@ -137,121 +186,3 @@ class CCTVAlertPipeline:
         except Exception as exc:
             logger.error("Clip upload failed: %s", exc)
             return None
-
-    async def _send_webhook(
-        self,
-        camera_id: str,
-        camera_label: str,
-        location_label: str,
-        timestamp: float,
-        confidence: float,
-        clip_url: str | None,
-    ) -> None:
-        """Send signed webhook to Hermes via family-alert-triage with CCTV payload."""
-        if not self.settings.hermes_webhook_url or not self.settings.hermes_webhook_secret:
-            logger.info("Hermes webhook not configured; skipping CCTV alert webhook")
-            return
-
-        detected_at = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
-        summary = f"Person detected at {camera_label} ({location_label}) with {confidence:.0%} confidence."
-        if clip_url:
-            summary += f" Clip: {clip_url}"
-
-        payload = {
-            "event_type": "cctv_motion_alert",
-            "alert": {
-                "id": f"cctv_{camera_id}_{int(timestamp)}",
-                "source": "CCTV",
-                "event": f"Person Detected at {camera_label}",
-                "severity": "Severe",
-                "urgency": "Immediate",
-                "certainty": "Observed",
-                "headline": f"Motion Alert: {camera_label}",
-                "summary": summary,
-                "area_label": location_label,
-                "expires_at": None,
-                "url": clip_url or "",
-            },
-            "family_candidates": [],
-            "policy": {
-                "allowed_channels": ["telegram", "email"],
-                "max_recipients": 5,
-                "require_notify_severities": ["Extreme", "Severe"],
-            },
-        }
-
-        # Fetch household members to populate family_candidates
-        try:
-            from app.services.supabase_household import SupabaseHouseholdService
-            household = await SupabaseHouseholdService(self.settings).get_household()
-            if household:
-                for member in household.members:
-                    if member.role.value == "guardian":
-                        payload["family_candidates"].append({
-                            "person_id": member.id,
-                            "display_name": member.name,
-                            "telegram_chat_id": member.telegram_chat_id or "",
-                            "email": member.phone_e164 or "",
-                            "location_status": "inside_alert_area",
-                            "last_seen_minutes": 0,
-                            "safety_status": "unknown",
-                        })
-        except Exception:
-            pass  # Best-effort; send without candidates if household fetch fails
-
-        body = json.dumps(payload)
-        signature = hmac.new(
-            self.settings.hermes_webhook_secret.encode(), body.encode(), hashlib.sha256
-        ).hexdigest()
-
-        try:
-            async with httpx.AsyncClient(timeout=self.settings.hermes_timeout_seconds) as client:
-                r = await client.post(
-                    self.settings.hermes_webhook_url,
-                    content=body,
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-Webhook-Signature": signature,
-                        "X-Request-ID": f"cctv_{camera_id}_{int(timestamp)}",
-                    },
-                )
-                r.raise_for_status()
-                logger.info("CCTV webhook sent for camera %s (status %d)", camera_id, r.status_code)
-        except Exception as exc:
-            logger.error("CCTV webhook failed for camera %s: %s", camera_id, exc)
-
-    async def _write_notification(
-        self,
-        camera_label: str,
-        location_label: str,
-        confidence: float,
-        clip_url: str | None,
-    ) -> None:
-        """Write a notification row to Supabase notifications table."""
-        if not (self.settings.supabase_url and self.settings.supabase_key and self.settings.supabase_family_id):
-            return
-
-        base = self.settings.supabase_url.rstrip("/")
-        body_text = f"Person detected at {camera_label} ({location_label}) with {confidence:.0%} confidence."
-        if clip_url:
-            body_text += f" Clip: {clip_url}"
-
-        try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                await client.post(
-                    f"{base}/rest/v1/notifications",
-                    json={
-                        "family_id": self.settings.supabase_family_id,
-                        "target_role": "guardian",
-                        "title": f"Motion Alert: {camera_label}",
-                        "body": body_text,
-                    },
-                    headers={
-                        "apikey": self.settings.supabase_key,
-                        "Authorization": f"Bearer {self.settings.supabase_key}",
-                        "Content-Type": "application/json",
-                        "Prefer": "return=minimal",
-                    },
-                )
-        except Exception as exc:
-            logger.error("Failed to write CCTV notification: %s", exc)

@@ -49,6 +49,7 @@ class SourceKind(str, Enum):
     IPAWS = "ipaws"
     SLO_COUNTY = "slo_county"
     CAL_POLY = "cal_poly"
+    CCTV = "cctv"
 
 
 class Severity(str, Enum):
@@ -247,6 +248,7 @@ class ActiveIncidentResponse(BaseModel):
     action_plan: ActionPlan | None = None
     camera_signal: CameraSignal | None = None
     classification: AlertClassification | None = None
+    summary: str | None = None
     demo_mode: bool = True
 
 
@@ -313,3 +315,16 @@ class CreateScheduleRequest(BaseModel):
     day_of_week: int = Field(ge=0, le=6)
     start_time: str  # e.g. '23:00'
     end_time: str    # e.g. '05:00'
+
+
+class IncidentRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    event_id: str
+    summary: str
+    classification_level: str
+    status: str = "active"
+    affected_members: list[dict[str, Any]] = Field(default_factory=list)
+    source_kind: SourceKind
+    severity: Severity
+    location_label: str
+    created_at: datetime = Field(default_factory=utc_now)

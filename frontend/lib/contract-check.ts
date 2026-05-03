@@ -15,6 +15,7 @@ const _incident: ActiveIncidentResponse = {
   action_plan: null,
   camera_signal: null,
   classification: null,
+  summary: null,
   demo_mode: true,
 };
 

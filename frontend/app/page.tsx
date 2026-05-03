@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { GpsMap } from "@/components/GpsMap";
-import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getTimeline, simulateEvent } from "@/lib/api";
+import { IncidentHistoryModal } from "@/components/IncidentHistoryModal";
+import { acknowledgeAction, getActiveIncident, getAuditLog, getHousehold, getLatestIncident, getTimeline, simulateEvent } from "@/lib/api";
 import type {
   ActiveIncidentResponse,
   AlertAuditEntry,
   CameraSignal,
   HouseholdMember,
   HouseholdState,
+  IncidentRecord,
   NotificationIntent,
   SourceKind,
   TimelineEntry
@@ -129,6 +131,8 @@ export default function DashboardPage() {
   const [active, setActive] = useState<ActiveIncidentResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [auditLog, setAuditLog] = useState<AlertAuditEntry[]>([]);
+  const [latestIncident, setLatestIncident] = useState<IncidentRecord | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [source, setSource] = useState<SourceKind>("nws");
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -143,16 +147,18 @@ export default function DashboardPage() {
   const notificationIntents = plan?.notification_intents ?? [];
 
   async function refresh() {
-    const [householdResponse, activeResponse, timelineResponse, auditLogResponse] = await Promise.all([
+    const [householdResponse, activeResponse, timelineResponse, auditLogResponse, incidentResponse] = await Promise.all([
       getHousehold(),
       getActiveIncident(),
       getTimeline(),
-      getAuditLog()
+      getAuditLog(),
+      getLatestIncident()
     ]);
     setHousehold(householdResponse);
     setActive(activeResponse);
     setTimeline(timelineResponse);
     setAuditLog(auditLogResponse);
+    setLatestIncident(incidentResponse);
   }
 
   useEffect(() => {
@@ -177,6 +183,7 @@ export default function DashboardPage() {
       const [householdResponse, timelineResponse] = await Promise.all([getHousehold(), getTimeline()]);
       setHousehold(householdResponse);
       setTimeline(timelineResponse);
+      getLatestIncident().then(setLatestIncident);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Simulation failed.");
     } finally {
@@ -240,19 +247,44 @@ export default function DashboardPage() {
               <Link className="ops-button" href="/cameras" style={{ textDecoration: "none" }}>
                 Manage Cameras
               </Link>
+              <button className="ops-button" onClick={() => setShowHistory(true)}>
+                Incident History
+              </button>
             </div>
           </div>
         </section>
 
         <section className="ops-panel area-summary ops-summary">
-          <h2>Alert classification</h2>
-          <p className="summary-subtitle">
-            {classification
-              ? `${classification.classified_by} • ${Math.round(classification.confidence * 100)}% confidence`
-              : "Hermes classifier / local fallback"}
-          </p>
-          {classification ? <p className="classification-level">{classification.level.replaceAll("_", " ")}</p> : null}
-          <p>{plan?.rationale ?? incident?.description ?? "Replay an alert to populate the live analysis panel."}</p>
+          <h2>Incident summary</h2>
+          {latestIncident ? (
+            <>
+              <div className="incident-history-meta" style={{ marginBottom: "0.5rem" }}>
+                <span className={`audit-severity sev-${latestIncident.severity}`}>
+                  {latestIncident.severity.toUpperCase()}
+                </span>
+                <span className="incident-history-level">
+                  {latestIncident.classification_level.replaceAll("_", " ").toUpperCase()}
+                </span>
+                <span className="muted-text">{latestIncident.location_label}</span>
+              </div>
+              <p>{latestIncident.summary}</p>
+              {latestIncident.affected_members.length > 0 && (
+                <p className="muted-text" style={{ marginTop: "0.5rem" }}>
+                  Affected: {latestIncident.affected_members.map((m) => m.name).join(", ")}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="summary-subtitle">
+                {classification
+                  ? `${classification.classified_by} • ${Math.round(classification.confidence * 100)}% confidence`
+                  : "Hermes classifier / local fallback"}
+              </p>
+              {classification ? <p className="classification-level">{classification.level.replaceAll("_", " ")}</p> : null}
+              <p>{active?.summary ?? plan?.rationale ?? incident?.description ?? "Replay an alert to populate the incident summary."}</p>
+            </>
+          )}
         </section>
 
         <section className="ops-panel area-timeline ops-timeline">
@@ -356,6 +388,8 @@ export default function DashboardPage() {
           <div className="chat-input">Message input disabled for MVP</div>
         </section>
       </div>
+
+      {showHistory && <IncidentHistoryModal onClose={() => setShowHistory(false)} />}
     </main>
   );
 }

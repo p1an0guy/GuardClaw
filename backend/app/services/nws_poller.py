@@ -57,6 +57,9 @@ def _props_to_threat_event(props: dict[str, Any], geometry: dict[str, Any] | Non
         coords = geometry.get("coordinates")
         if coords and isinstance(coords, list) and len(coords) > 0:
             first = coords[0]
+            # Polygon rings: coords[0] is a list of [lng, lat] pairs
+            if isinstance(first, list) and len(first) > 0 and isinstance(first[0], list):
+                first = first[0]
             if isinstance(first, list) and len(first) >= 2:
                 lng, lat = float(first[0]), float(first[1])
     return ThreatEvent(
@@ -110,12 +113,13 @@ class NWSPoller:
         logger.info("NWSPoller: polled area=%s — %d feature(s) returned", NWS_AREA, len(features))
 
         for feature in features:
+            logger.info("NWSPoller: attempting to ingest alert")
             props = feature.get("properties") or {}
             nws_id = str(props.get("id") or "")
             seen = self._audit.has_entry(SourceKind.NWS, nws_id)
             if not nws_id or seen:
                 if seen:
-                    logger.debug("NWSPoller: skipping already-seen nws_id=%s", nws_id[:60])
+                    logger.info("NWSPoller: skipping already-seen nws_id=%s", nws_id[:60])
                 continue
             event = _props_to_threat_event(props, feature.get("geometry"))
             entry = AlertAuditEntry(

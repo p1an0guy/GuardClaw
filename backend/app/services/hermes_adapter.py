@@ -84,6 +84,36 @@ class HermesAdapter:
 
         return None, f"Hermes classification invalid after retry; using local fallback. Detail: {last_error}"
 
+    async def generate_incident_summary(
+        self,
+        event: ThreatEvent,
+        household: HouseholdState,
+        classification: AlertClassification,
+        camera_signal: CameraSignal | None,
+    ) -> tuple[str, str]:
+        fallback = f"{event.title}. Classified as {classification.level.value.replace('_', ' ')}. {classification.rationale}"
+        if not self.settings.use_hermes or not self.settings.hermes_api_key:
+            return fallback, "Hermes disabled; using local summary."
+        prompt = {
+            "task": "Write a concise 1-3 sentence incident summary for a household safety dashboard. Be specific about the threat, who is affected, and current status.",
+            "event": {"title": event.title, "description": event.description, "severity": event.severity.value, "location": event.location_label, "source": event.source_kind.value},
+            "classification": {"level": classification.level.value, "rationale": classification.rationale},
+            "household_members": [{"name": m.name, "status": m.status.value} for m in household.members],
+            "camera": {"label": camera_signal.label, "occupancy": camera_signal.occupancy_confirmed} if camera_signal else None,
+        }
+        try:
+            content = await self._call_chat(
+                system="You are GuardClaw's incident summarizer. Return ONLY the summary text, no JSON, no quotes, no preamble.",
+                prompt=prompt,
+                temperature=0.3,
+            )
+            summary = content.strip().strip('"')
+            if len(summary) < 10:
+                return fallback, "Hermes returned too-short summary; using local fallback."
+            return summary, "Hermes summary generated."
+        except Exception as exc:
+            return fallback, f"Hermes summary failed: {exc}; using local fallback."
+
     async def dispatch_outbound_message(self, message: OutboundMessage) -> tuple[OutboundMessage, str]:
         if not self.settings.use_hermes or not self.settings.hermes_api_key:
             return message, "Hermes unavailable; message remains a demo timeline draft."
