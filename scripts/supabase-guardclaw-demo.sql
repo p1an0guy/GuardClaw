@@ -215,3 +215,30 @@ begin
     alter publication supabase_realtime add table member_locations;
   end if;
 end $$;
+
+create table if not exists incidents (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid references families(id),
+  event_id text not null,
+  summary text not null,
+  classification_level text not null,
+  status text not null default 'active',
+  affected_members jsonb not null default '[]'::jsonb,
+  source_kind text not null,
+  severity text not null,
+  location_label text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists incidents_created_at_idx
+  on incidents (created_at desc);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'incidents'
+  ) then
+    alter publication supabase_realtime add table incidents;
+  end if;
+end $$;

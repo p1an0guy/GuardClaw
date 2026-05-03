@@ -15,19 +15,19 @@ class MessagingService:
         self.store = store
         self.hermes = hermes
 
-    async def send_all(self, messages: list[OutboundMessage]) -> list[OutboundMessage]:
+    async def send_all(self, messages: list[OutboundMessage], incident_id: str | None = None) -> list[OutboundMessage]:
         sent: list[OutboundMessage] = []
         for message in messages:
             if message.channel == Channel.DISCORD:
                 sent.append(await self.send_discord_dm(message))
             elif message.channel == Channel.CALL:
-                sent.append(await self.send_call(message))
+                sent.append(await self.send_call(message, incident_id=incident_id))
             elif message.channel == Channel.EMAIL:
                 sent.append(await self.send_email(message))
             elif message.channel == Channel.SMS:
                 sent.append(await self.send_sms(message))
             elif message.channel == Channel.TELEGRAM:
-                sent.append(await self.send_telegram(message))
+                sent.append(await self.send_telegram(message, incident_id=incident_id))
             else:
                 sent.append(self._mark_failed(message, "Unsupported channel."))
         return sent
@@ -41,18 +41,18 @@ class MessagingService:
     async def send_sms(self, message: OutboundMessage) -> OutboundMessage:
         return self._log_stub(message, "SMS")
 
-    async def send_telegram(self, message: OutboundMessage) -> OutboundMessage:
+    async def send_telegram(self, message: OutboundMessage, incident_id: str | None = None) -> OutboundMessage:
         if self.hermes is not None:
-            return await self._send_via_hermes(message, "Telegram")
+            return await self._send_via_hermes(message, "Telegram", incident_id=incident_id)
         return self._log_stub(message, "Telegram")
 
-    async def send_call(self, message: OutboundMessage) -> OutboundMessage:
+    async def send_call(self, message: OutboundMessage, incident_id: str | None = None) -> OutboundMessage:
         if self.hermes is not None:
-            return await self._send_via_hermes(message, "Outbound call")
+            return await self._send_via_hermes(message, "Outbound call", incident_id=incident_id)
         return self._log_stub(message, "Outbound call")
 
-    async def _send_via_hermes(self, message: OutboundMessage, channel_label: str) -> OutboundMessage:
-        updated, detail = await self.hermes.dispatch_outbound_message(message)
+    async def _send_via_hermes(self, message: OutboundMessage, channel_label: str, incident_id: str | None = None) -> OutboundMessage:
+        updated, detail = await self.hermes.dispatch_outbound_message(message, incident_id=incident_id)
         if updated.status == OutboundStatus.SENT_VIA_HERMES:
             self.store.add_timeline(
                 TimelineEntry(

@@ -5,6 +5,7 @@ import type {
   Camera,
   CameraAlertSchedule,
   HouseholdState,
+  IncidentRecord,
   SavedLocation,
   SourceKind,
   TimelineEntry
@@ -61,6 +62,14 @@ export function acknowledgeAction(targetId: string): Promise<AcknowledgeResponse
 
 export function getAuditLog(): Promise<AlertAuditEntry[]> {
   return requestJson<AlertAuditEntry[]>("/api/alerts/audit-log");
+}
+
+export function getLatestIncident(): Promise<IncidentRecord | null> {
+  return requestJson<IncidentRecord>("/api/incidents/latest").catch(() => null);
+}
+
+export function getIncidents(): Promise<IncidentRecord[]> {
+  return requestJson<IncidentRecord[]>("/api/incidents");
 }
 
 export function getSavedLocations(): Promise<SavedLocation[]> {

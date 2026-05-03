@@ -1,5 +1,5 @@
 export type Channel = "telegram" | "call" | "email" | "sms" | "discord";
-export type SourceKind = "nws" | "ipaws" | "slo_county" | "cal_poly";
+export type SourceKind = "nws" | "ipaws" | "slo_county" | "cal_poly" | "cctv";
 export type AlertLevel = "minor" | "moderate" | "major" | "life_threatening";
 
 export interface ThreatEvent {
@@ -167,6 +167,7 @@ export interface ActiveIncidentResponse {
   action_plan: ActionPlan | null;
   camera_signal: CameraSignal | null;
   classification: AlertClassification | null;
+  summary: string | null;
   demo_mode: boolean;
 }
 
@@ -206,6 +207,19 @@ export interface CameraAlertSchedule {
   start_time: string;
   end_time: string;
   enabled: boolean;
+  created_at: string;
+}
+
+export interface IncidentRecord {
+  id: string;
+  event_id: string;
+  summary: string;
+  classification_level: string;
+  status: string;
+  affected_members: Array<{ member_id: string; name: string; risk_level: string }>;
+  source_kind: SourceKind;
+  severity: string;
+  location_label: string;
   created_at: string;
 }
 
